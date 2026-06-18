@@ -46,7 +46,6 @@ class MahasiswaWebController extends Controller {
             'angkatan' => $request->angkatan,
         ]);
 
-        // Assign ke kelas kalau dipilih
         if ($request->kelas_ids) {
             $mahasiswa->kelas()->sync($request->kelas_ids);
         }
@@ -69,7 +68,10 @@ class MahasiswaWebController extends Controller {
             'angkatan' => $request->angkatan,
         ]);
 
-        // Update kelas
+        if ($mahasiswa->user) {
+            $mahasiswa->user->update(['name' => $request->nama]);
+        }
+
         if ($request->kelas_ids) {
             $mahasiswa->kelas()->sync($request->kelas_ids);
         } else {
