@@ -10,7 +10,7 @@ use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\RapotController;
 use App\Http\Controllers\SesiAbsensiController;
 
-Route::options('{any}', function() {
+Route::options('{any}', function () {
     return response('', 200)
         ->header('Access-Control-Allow-Origin', '*')
         ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
@@ -18,8 +18,12 @@ Route::options('{any}', function() {
 })->where('any', '.*');
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
 
 Route::middleware('auth:sanctum')->group(function () {
+
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
+
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [AuthController::class, 'profile']);
 
