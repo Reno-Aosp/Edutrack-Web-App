@@ -10,8 +10,7 @@ You can verify the live environment using the following links:
 - **Backend API Base URL**: `https://edutrack.serveblog.net/api`
 - **Live Demo / Web Portal**: `https://edutrack.serveblog.net/login`
 
-*(Optional: Add a screenshot or GIF here showing the mobile app fetching live data from the AWS server!)*
-![App Demo](https://via.placeholder.com/600x400?text=App+Screenshot+or+GIF+Here)
+
 
 ---
 
