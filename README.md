@@ -11,6 +11,7 @@ A full-stack academic management platform with a **built-in AI Lifestyle Suggest
 | Resource | URL |
 |---|---|
 | 🌍 Live Web App | [`https://edutrack.serveblog.net/login`](https://edutrack.serveblog.net/login) |
+pw= admin123
 | 🤖 AI Health Check | [`https://edutrack.serveblog.net/health`](https://edutrack.serveblog.net/health) |
 | 📡 Lifestyle AI Endpoint | `POST https://edutrack.serveblog.net/api/lifestyle-suggestion` |
 
