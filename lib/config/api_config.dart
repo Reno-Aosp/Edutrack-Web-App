@@ -1,7 +1,7 @@
 class ApiConfig {
   // ── Ganti sesuai environment ─────────────────────────────
   // AWS Live Server (Public IP):
-  static const String baseUrl = 'https://edutracks.duckdns.org/api';
+  static const String baseUrl = 'https://edutrack.serveblog.net/api';
   //
   // Development (Flutter Web / browser):
   //   static const String baseUrl = 'http://127.0.0.1:8000/api';

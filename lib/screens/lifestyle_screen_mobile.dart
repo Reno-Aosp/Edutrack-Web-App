@@ -28,7 +28,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://edutracks.duckdns.org/lifestyle-assessment'));
+      ..loadRequest(Uri.parse('https://edutrack.serveblog.net/lifestyle-assessment'));
   }
 
   @override

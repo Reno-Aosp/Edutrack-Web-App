@@ -18,7 +18,7 @@ class _LifestyleScreenState extends State<LifestyleScreen> {
   @override
   void initState() {
     super.initState();
-    _setupIframe('https://edutracks.duckdns.org/lifestyle-assessment');
+    _setupIframe('https://edutrack.serveblog.net/lifestyle-assessment');
   }
 
   void _setupIframe(String url) {
