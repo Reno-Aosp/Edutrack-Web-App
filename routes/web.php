@@ -10,6 +10,7 @@ use App\Http\Controllers\Web\KelasWebController;
 use App\Http\Controllers\Web\DosenWebController;
 use App\Http\Controllers\Web\JadwalWebController;
 use App\Http\Controllers\Web\RapotWebController;
+use App\Http\Controllers\SesiAbsensiController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -27,7 +28,6 @@ Route::middleware('auth')->group(function () {
     Route::resource('dosen', DosenWebController::class);
     Route::resource('matakuliah', MataKuliahWebController::class);
     Route::resource('nilai', NilaiWebController::class);
-    Route::resource('rapot', RapotWebController::class)->only(['index', 'show']);
     Route::resource('absensi', AbsensiWebController::class);
     Route::resource('kelas', KelasWebController::class);
 
@@ -42,6 +42,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/jadwal/{id}/edit', [JadwalWebController::class, 'edit'])->name('jadwal.edit');
     Route::put('/jadwal/{id}', [JadwalWebController::class, 'update'])->name('jadwal.update');
     Route::delete('/jadwal/{id}', [JadwalWebController::class, 'destroy'])->name('jadwal.destroy');
+
+    // Rapot
+    Route::get('/rapot', [RapotWebController::class, 'index'])->name('rapot.index');
+
+    // Sesi Absensi
+    Route::get('/sesi-absensi', [SesiAbsensiController::class, 'index'])->name('sesi-absensi.index');
+    Route::post('/sesi-absensi', [SesiAbsensiController::class, 'store'])->name('sesi-absensi.store');
+    Route::patch('/sesi-absensi/{id}/tutup', [SesiAbsensiController::class, 'tutup'])->name('sesi-absensi.tutup');
+    Route::delete('/sesi-absensi/{id}', [SesiAbsensiController::class, 'destroy'])->name('sesi-absensi.destroy');
 
     // Users
     Route::get('/users', [DashboardController::class, 'userList'])->name('users.index');

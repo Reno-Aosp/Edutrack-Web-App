@@ -69,6 +69,14 @@
                         <i class="bi bi-calendar-check"></i> Absensi
                     </a>
                 </li>
+
+                {{-- TAMBAHAN BARU --}}
+                <li class="nav-item">
+                    <a href="{{ route('sesi-absensi.index') }}" class="nav-link px-3 py-2 {{ request()->is('sesi-absensi*') ? 'active' : '' }}">
+                        <i class="bi bi-door-open"></i> Sesi Absensi
+                    </a>
+                </li>
+
             </ul>
             <div class="mt-4">
                 <form method="POST" action="{{ route('logout') }}">
