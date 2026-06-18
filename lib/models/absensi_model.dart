@@ -19,8 +19,8 @@ class AbsensiModel {
 
   factory AbsensiModel.fromJson(Map<String, dynamic> json) {
     return AbsensiModel(
-      id: json['id'],
-      mataKuliah: json['mata_kuliah']?['nama'] ?? '-',
+      id: json['id'] ?? 0,
+      mataKuliah: json['mata_kuliah'] ?? '-',
       tanggal: json['tanggal'] ?? '-',
       status: json['status'] ?? '-',
       keterangan: json['keterangan'] ?? '',

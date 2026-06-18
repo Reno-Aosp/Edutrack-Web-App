@@ -1,13 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/absensi_model.dart';
-import '../models/matkul_model.dart';
 
-// ── SISTEM PAKAR: Rekomendasi Status Kehadiran ────────────────────────────
 class SistemPakarAbsensi {
-  // Knowledge Base: aturan-aturan (IF-THEN)
   static const int batasAlphaKritis = 3;
   static const int batasAlphaMaksimal = 5;
   static const double batasMinKehadiran = 0.75;
@@ -17,21 +15,17 @@ class SistemPakarAbsensi {
     required int matkulId,
     required String keteranganInput,
   }) {
-    // Filter riwayat untuk matkul ini
     final riwayatMatkul = riwayat.where((a) => a.matkulId == matkulId).toList();
-
     final total = riwayatMatkul.length;
     final alphaCount = riwayatMatkul.where((a) => a.status == 'alpha').length;
     final hadirCount = riwayatMatkul.where((a) => a.status == 'hadir').length;
     final persentaseHadir = total == 0 ? 1.0 : hadirCount / total;
 
-    // NLP sederhana: analisis kata kunci di keterangan
     final ket = keteranganInput.toLowerCase();
     String statusRekomendasi = 'hadir';
     String alasan = '';
-    String levelWarning = 'normal'; // normal, warning, danger
+    String levelWarning = 'normal';
 
-    // Rule 1: Deteksi kata kunci sakit
     if (ket.contains('sakit') ||
         ket.contains('demam') ||
         ket.contains('flu') ||
@@ -40,9 +34,7 @@ class SistemPakarAbsensi {
         ket.contains('dokter')) {
       statusRekomendasi = 'sakit';
       alasan = 'Keterangan mengandung kata kunci kondisi kesehatan.';
-    }
-    // Rule 2: Deteksi kata kunci izin
-    else if (ket.contains('izin') ||
+    } else if (ket.contains('izin') ||
         ket.contains('keperluan') ||
         ket.contains('keluarga') ||
         ket.contains('urusan') ||
@@ -52,19 +44,16 @@ class SistemPakarAbsensi {
       alasan = 'Keterangan mengandung kata kunci keperluan/izin resmi.';
     }
 
-    // Rule 3: Cek level bahaya alpha
     if (alphaCount >= batasAlphaMaksimal) {
       levelWarning = 'danger';
     } else if (alphaCount >= batasAlphaKritis) {
       levelWarning = 'warning';
     }
 
-    // Rule 4: Cek persentase kehadiran
     String pesanKehadiran = '';
     if (persentaseHadir < batasMinKehadiran && total > 0) {
       pesanKehadiran =
-          'Kehadiran ${(persentaseHadir * 100).toStringAsFixed(0)}% — '
-          'di bawah batas minimum 75%!';
+          'Kehadiran ${(persentaseHadir * 100).toStringAsFixed(0)}% — di bawah 75%!';
       if (levelWarning == 'normal') levelWarning = 'warning';
     }
 
@@ -73,9 +62,7 @@ class SistemPakarAbsensi {
       'alasan': alasan,
       'levelWarning': levelWarning,
       'alphaCount': alphaCount,
-      'persentaseHadir': persentaseHadir,
       'pesanKehadiran': pesanKehadiran,
-      'totalMatkul': total,
     };
   }
 }
@@ -91,54 +78,102 @@ class AbsensiScreen extends StatefulWidget {
 class _AbsensiScreenState extends State<AbsensiScreen>
     with SingleTickerProviderStateMixin {
   List<AbsensiModel> _absensiList = [];
-  List<MatkulModel> _matkulList = [];
+  List<Map<String, dynamic>> _sesiAktif = [];
   bool _isLoading = true;
   late TabController _tabController;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadAbsensiAndMatkul();
+    _loadAll();
+    _timer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _cekSesiAktif(),
+    );
   }
 
-  Future<void> _loadAbsensiAndMatkul() async {
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAll() async {
+    setState(() => _isLoading = true);
     try {
-      print('[AbsensiScreen] Starting load...');
-      final absensiData = await ApiService.getAbsensi();
-      print('[AbsensiScreen] Loaded absensi: ${absensiData.length} records');
-
-      final profileData = await ApiService.getProfile();
-      print('[AbsensiScreen] Profile nama: ${profileData?.name}');
-      print(
-        '[AbsensiScreen] Profile mahasiswa ID: ${profileData?.mahasiswa?.id}',
-      );
-
-      String? mahasiswaId;
-      if (profileData?.mahasiswa?.id != null) {
-        mahasiswaId = profileData!.mahasiswa!.id.toString();
-      }
-      print('[AbsensiScreen] Mahasiswa ID: $mahasiswaId');
-
-      final matkulData = await ApiService.getMatakuliah(
-        mahasiswaId: mahasiswaId,
-      );
-      print('[AbsensiScreen] Loaded matkul: ${matkulData.length} records');
-      if (matkulData.isNotEmpty) {
-        print('[AbsensiScreen] First matkul: ${matkulData.first.nama}');
-      }
-
+      final absensi = await ApiService.getAbsensi();
+      final sesi = await ApiService.getSesiAktif();
+      if (!mounted) return;
       setState(() {
-        _absensiList = absensiData;
-        _matkulList = matkulData;
+        _absensiList = absensi;
+        _sesiAktif = _filterSesiMasihBuka(sesi); // ✅ filter jam
         _isLoading = false;
       });
     } catch (e) {
-      print('[AbsensiScreen] Error loading data: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  // ✅ Filter sesi yang jam tutupnya belum lewat
+  List<Map<String, dynamic>> _filterSesiMasihBuka(
+    List<Map<String, dynamic>> sesi,
+  ) {
+    return sesi.where((s) {
+      if (s['jam_tutup'] == null || s['jam_tutup'].toString().isEmpty)
+        return true;
+      try {
+        final now = TimeOfDay.now();
+        final parts = s['jam_tutup'].toString().split(':');
+        final tutup = TimeOfDay(
+          hour: int.parse(parts[0]),
+          minute: int.parse(parts[1]),
+        );
+        final nowMin = now.hour * 60 + now.minute;
+        final tutupMin = tutup.hour * 60 + tutup.minute;
+        return nowMin <= tutupMin;
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+  }
+
+  Future<void> _cekSesiAktif() async {
+    try {
+      final sesi = await ApiService.getSesiAktif();
+      final sesiValid = _filterSesiMasihBuka(sesi);
+      if (!mounted) return;
+      final sebelumnya = _sesiAktif.length;
+      setState(() => _sesiAktif = sesiValid);
+
+      if (sesiValid.length > sebelumnya) {
+        final s = sesiValid.last;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '🔔 Sesi ${s['matkul_nama']} baru dibuka!',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: const Color(0xFFE91E8C),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      if (sesiValid.length < sebelumnya) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '🔒 Sesi absensi telah ditutup.',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.grey.shade700,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   Color _getStatusColor(String status) {
@@ -171,8 +206,9 @@ class _AbsensiScreenState extends State<AbsensiScreen>
     }
   }
 
-  void _showInputAbsensi() {
-    int? selectedMatkulId;
+  // ── Modal Input Absensi ──────────────────────────────────────────────────
+  void _showInputAbsensi({required Map<String, dynamic> sesiDipilih}) {
+    Map<String, dynamic> selectedSesi = sesiDipilih;
     String selectedStatus = 'hadir';
     String rekomendasiStatus = 'hadir';
     String alasanRekomendasi = '';
@@ -189,10 +225,9 @@ class _AbsensiScreenState extends State<AbsensiScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           void jalankanSistemPakar() {
-            if (selectedMatkulId == null) return;
             final hasil = SistemPakarAbsensi.diagnosa(
               riwayat: _absensiList,
-              matkulId: selectedMatkulId!,
+              matkulId: selectedSesi['matkul_id'],
               keteranganInput: keteranganController.text,
             );
             setModalState(() {
@@ -227,6 +262,7 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
+
                   Text(
                     'Input Absensi',
                     style: GoogleFonts.poppins(
@@ -242,83 +278,57 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                       fontSize: 12,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // ── Pilih Mata Kuliah ──
-                  Text(
-                    'Mata Kuliah',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF5C1033),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_matkulList.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey.shade50,
+                  // Info sesi
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE91E8C).withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFE91E8C).withOpacity(0.4),
                       ),
-                      child: Center(
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color(0xFFE91E8C),
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                'Tidak ada mata kuliah tersedia',
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.circle,
+                          color: Color(0xFFE91E8C),
+                          size: 10,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${selectedSesi['matkul_nama']} - ${selectedSesi['kelas_nama']}',
                                 style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.bold,
                                   fontSize: 13,
+                                  color: const Color(0xFF5C1033),
+                                ),
+                              ),
+                              Text(
+                                'Jam: ${selectedSesi['jam_buka']} - ${selectedSesi['jam_tutup'] ?? 'sekarang'}  |  '
+                                'Pertemuan ke-${selectedSesi['pertemuan_ke'] ?? '-'}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
                                   color: Colors.grey,
                                 ),
                               ),
-                      ),
-                    )
-                  else
-                    DropdownButtonFormField<int>(
-                      value: selectedMatkulId,
-                      hint: const Text('Pilih Mata Kuliah'),
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE91E8C),
+                            ],
                           ),
                         ),
-                      ),
-                      items: _matkulList
-                          .map(
-                            (mk) => DropdownMenuItem<int>(
-                              value: mk.id,
-                              child: Text(
-                                mk.nama,
-                                style: GoogleFonts.poppins(fontSize: 13),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (val) {
-                        setModalState(() => selectedMatkulId = val);
-                        jalankanSistemPakar();
-                      },
+                      ],
                     ),
-                  const SizedBox(height: 16),
+                  ),
 
-                  // ── Keterangan (NLP input) ──
+                  // Keterangan
                   Text(
-                    'Keterangan',
+                    'Keterangan (opsional)',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF5C1033),
@@ -346,7 +356,7 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                   ),
                   const SizedBox(height: 12),
 
-                  // ── Rekomendasi Sistem Pakar ──
+                  // Rekomendasi sistem pakar
                   if (alasanRekomendasi.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -371,8 +381,7 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Sistem Pakar merekomendasikan: '
-                                  '${rekomendasiStatus.toUpperCase()}',
+                                  'Rekomendasi: ${rekomendasiStatus.toUpperCase()}',
                                   style: GoogleFonts.poppins(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -393,14 +402,12 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                       ),
                     ),
 
-                  // ── Warning level bahaya ──
                   if (levelWarning == 'danger')
                     _warningBox(
                       icon: Icons.dangerous_rounded,
                       warna: Colors.red,
                       pesan:
-                          'BAHAYA: Alpha sudah melebihi batas! '
-                          'Risiko tidak bisa mengikuti ujian.',
+                          'BAHAYA: Alpha sudah melebihi batas! Risiko tidak bisa ujian.',
                     ),
                   if (levelWarning == 'warning')
                     _warningBox(
@@ -408,10 +415,10 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                       warna: Colors.orange,
                       pesan: pesanKehadiran.isNotEmpty
                           ? pesanKehadiran
-                          : 'Perhatian: Alpha sudah ${SistemPakarAbsensi.batasAlphaKritis}x. Jaga kehadiran!',
+                          : 'Perhatian: Alpha sudah ${SistemPakarAbsensi.batasAlphaKritis}x!',
                     ),
 
-                  // ── Status ──
+                  // ✅ Status — HAPUS Alpha
                   Text(
                     'Status Kehadiran',
                     style: GoogleFonts.poppins(
@@ -421,14 +428,15 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                   ),
                   const SizedBox(height: 8),
                   Row(
-                    children: ['hadir', 'sakit', 'izin', 'alpha'].map((s) {
+                    children: ['hadir', 'sakit', 'izin'].map((s) {
+                      // ✅ alpha dihapus
                       final isSelected = selectedStatus == s;
                       return Expanded(
                         child: GestureDetector(
                           onTap: () => setModalState(() => selectedStatus = s),
                           child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 3),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? _getStatusColor(s)
@@ -442,13 +450,13 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                                   color: isSelected
                                       ? Colors.white
                                       : Colors.grey,
-                                  size: 20,
+                                  size: 22,
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 6),
                                 Text(
                                   s[0].toUpperCase() + s.substring(1),
                                   style: GoogleFonts.poppins(
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     color: isSelected
                                         ? Colors.white
                                         : Colors.grey,
@@ -464,44 +472,41 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                   ),
                   const SizedBox(height: 20),
 
-                  // ── Submit ──
+                  // Submit
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () async {
-                        if (selectedMatkulId == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Pilih mata kuliah dulu!'),
-                            ),
-                          );
-                          return;
-                        }
-                        final success = await ApiService.inputAbsensi(
-                          mahasiswaId: widget.mahasiswaId,
-                          matkulId: selectedMatkulId!,
-                          tanggal: DateFormat(
-                            'yyyy-MM-dd',
-                          ).format(DateTime.now()),
+                        final profile = await ApiService.getProfile();
+                        final mahasiswaId =
+                            profile?.mahasiswa?.id ?? widget.mahasiswaId;
+
+                        final result = await ApiService.inputAbsensi(
+                          mahasiswaId: mahasiswaId,
+                          matkulId: selectedSesi['matkul_id'],
+                          sesiId: selectedSesi['id'],
                           status: selectedStatus,
                           keterangan: keteranganController.text,
                         );
+
                         if (mounted) {
                           Navigator.pop(ctx);
+                          final success = result['success'] == true;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
                                 success
                                     ? 'Absensi berhasil dicatat!'
-                                    : 'Gagal input absensi!',
+                                    : result['message'] ??
+                                          'Gagal input absensi!',
                               ),
                               backgroundColor: success
                                   ? Colors.green
                                   : Colors.red,
                             ),
                           );
-                          if (success) _loadAbsensiAndMatkul();
+                          if (success) _loadAll();
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -561,10 +566,10 @@ class _AbsensiScreenState extends State<AbsensiScreen>
 
   @override
   Widget build(BuildContext context) {
-    int hadir = _absensiList.where((a) => a.status == 'hadir').length;
-    int sakit = _absensiList.where((a) => a.status == 'sakit').length;
-    int izin = _absensiList.where((a) => a.status == 'izin').length;
-    int alpha = _absensiList.where((a) => a.status == 'alpha').length;
+    final hadir = _absensiList.where((a) => a.status == 'hadir').length;
+    final sakit = _absensiList.where((a) => a.status == 'sakit').length;
+    final izin = _absensiList.where((a) => a.status == 'izin').length;
+    final alpha = _absensiList.where((a) => a.status == 'alpha').length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF0F7),
@@ -575,6 +580,9 @@ class _AbsensiScreenState extends State<AbsensiScreen>
           'Absensi',
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadAll),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -586,186 +594,308 @@ class _AbsensiScreenState extends State<AbsensiScreen>
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showInputAbsensi,
-        backgroundColor: const Color(0xFFE91E8C),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: Text(
-          'Input Absensi',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-        ),
-      ),
+      // ✅ Hapus FAB Input Absensi
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFFE91E8C)),
             )
-          : TabBarView(
-              controller: _tabController,
+          : Column(
               children: [
-                // Tab Riwayat
-                _absensiList.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                // ── Banner sesi aktif — klik untuk absen ──────────────────
+                if (_sesiAktif.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: const BoxDecoration(color: Color(0xFFE91E8C)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Icon(
-                              Icons.calendar_today_outlined,
-                              size: 80,
-                              color: Colors.pink.shade200,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Belum ada data absensi',
-                              style: GoogleFonts.poppins(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _absensiList.length,
-                        itemBuilder: (context, index) {
-                          final a = _absensiList[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            decoration: BoxDecoration(
+                            const Icon(
+                              Icons.notifications_active,
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.pink.shade50,
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                              size: 16,
                             ),
-                            child: ListTile(
-                              leading: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(
-                                    a.status,
-                                  ).withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  _getStatusIcon(a.status),
-                                  color: _getStatusColor(a.status),
-                                ),
-                              ),
-                              title: Text(
-                                a.mataKuliah,
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF5C1033),
-                                  fontSize: 13,
-                                ),
-                              ),
-                              subtitle: Text(
-                                a.tanggal,
-                                style: GoogleFonts.poppins(
-                                  color: Colors.grey,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              trailing: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(
-                                    a.status,
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: _getStatusColor(a.status),
-                                  ),
-                                ),
-                                child: Text(
-                                  a.status.toUpperCase(),
-                                  style: TextStyle(
-                                    color: _getStatusColor(a.status),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                // Tab Rekap
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      // Pie/Summary
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFE91E8C), Color(0xFF5C1033)],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          children: [
+                            const SizedBox(width: 6),
                             Text(
-                              'Total Pertemuan',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              _absensiList.length.toString(),
+                              'Ketuk untuk absen:',
                               style: GoogleFonts.poppins(
                                 color: Colors.white,
-                                fontSize: 40,
                                 fontWeight: FontWeight.bold,
+                                fontSize: 12,
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _rekapItem('Hadir', hadir, Colors.green),
-                                _rekapItem('Sakit', sakit, Colors.orange),
-                                _rekapItem('Izin', izin, Colors.blue),
-                                _rekapItem('Alpha', alpha, Colors.red),
-                              ],
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      // Progress bar
-                      _progressBar(
-                        'Hadir',
-                        hadir,
-                        _absensiList.length,
-                        Colors.green,
-                      ),
-                      _progressBar(
-                        'Sakit',
-                        sakit,
-                        _absensiList.length,
-                        Colors.orange,
-                      ),
-                      _progressBar(
-                        'Izin',
-                        izin,
-                        _absensiList.length,
-                        Colors.blue,
-                      ),
-                      _progressBar(
-                        'Alpha',
-                        alpha,
-                        _absensiList.length,
-                        Colors.red,
+                        const SizedBox(height: 6),
+                        ..._sesiAktif.map(
+                          (s) => GestureDetector(
+                            onTap: () => _showInputAbsensi(sesiDipilih: s),
+                            child: Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.touch_app,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${s['matkul_nama']} - ${s['kelas_nama']}',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${s['jam_buka']} s/d ${s['jam_tutup'] ?? 'sekarang'}  |  Pertemuan ke-${s['pertemuan_ke'] ?? '-'}',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.arrow_forward_ios,
+                                    color: Colors.white70,
+                                    size: 14,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    color: Colors.grey.shade100,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: Colors.grey,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Tidak ada sesi absensi aktif',
+                          style: GoogleFonts.poppins(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Tab Riwayat
+                      _absensiList.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_outlined,
+                                    size: 80,
+                                    color: Colors.pink.shade200,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Belum ada data absensi',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : RefreshIndicator(
+                              color: const Color(0xFFE91E8C),
+                              onRefresh: _loadAll,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _absensiList.length,
+                                itemBuilder: (context, index) {
+                                  final a = _absensiList[index];
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.pink.shade50,
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ListTile(
+                                      leading: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(
+                                            a.status,
+                                          ).withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          _getStatusIcon(a.status),
+                                          color: _getStatusColor(a.status),
+                                        ),
+                                      ),
+                                      title: Text(
+                                        a.mataKuliah,
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF5C1033),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        a.tanggal,
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.grey,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                      trailing: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(
+                                            a.status,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          border: Border.all(
+                                            color: _getStatusColor(a.status),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          a.status.toUpperCase(),
+                                          style: TextStyle(
+                                            color: _getStatusColor(a.status),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                      // Tab Rekap
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFE91E8C),
+                                    Color(0xFF5C1033),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'Total Pertemuan',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    _absensiList.length.toString(),
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceAround,
+                                    children: [
+                                      _rekapItem('Hadir', hadir, Colors.green),
+                                      _rekapItem('Sakit', sakit, Colors.orange),
+                                      _rekapItem('Izin', izin, Colors.blue),
+                                      _rekapItem('Alpha', alpha, Colors.red),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _progressBar(
+                              'Hadir',
+                              hadir,
+                              _absensiList.length,
+                              Colors.green,
+                            ),
+                            _progressBar(
+                              'Sakit',
+                              sakit,
+                              _absensiList.length,
+                              Colors.orange,
+                            ),
+                            _progressBar(
+                              'Izin',
+                              izin,
+                              _absensiList.length,
+                              Colors.blue,
+                            ),
+                            _progressBar(
+                              'Alpha',
+                              alpha,
+                              _absensiList.length,
+                              Colors.red,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -780,7 +910,7 @@ class _AbsensiScreenState extends State<AbsensiScreen>
       children: [
         Text(
           count.toString(),
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -817,7 +947,7 @@ class _AbsensiScreenState extends State<AbsensiScreen>
                 ),
               ),
               Text(
-                '$count/${total}',
+                '$count/$total',
                 style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12),
               ),
             ],
