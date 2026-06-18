@@ -36,7 +36,9 @@
             <a href="{{ route('jadwal.index') }}" class="btn btn-sm btn-secondary">
                 <i class="bi bi-arrow-left"></i> Kembali
             </a>
-            <a href="{{ route('jadwal.create', ['kelas_id' => $kelas->id]) }}" class="btn btn-sm text-white" style="background:#E91E8C;">
+            {{-- Dosen bisa tambah jadwal untuk matkulnya sendiri --}}
+            <a href="{{ route('jadwal.create', ['kelas_id' => $kelas->id]) }}"
+               class="btn btn-sm text-white" style="background:#E91E8C;">
                 <i class="bi bi-plus-circle"></i> Tambah Jadwal
             </a>
         </div>
@@ -48,10 +50,21 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
-    @php
-        $hariUrut = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    @endphp
+    @if($isDosen ?? false)
+    <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle"></i>
+        Menampilkan jadwal untuk mata kuliah yang Anda ampu di kelas ini.
+    </div>
+    @endif
+
+    @php $hariUrut = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; @endphp
 
     @foreach($hariUrut as $hari)
         @php $jadwalHari = $jadwal->where('hari', $hari); @endphp
@@ -86,14 +99,25 @@
                                 <td>{{ $j->ruangan ?? '-' }}</td>
                                 <td>{{ $j->dosen->user->name ?? '-' }}</td>
                                 <td>
-                                    <a href="{{ route('jadwal.edit', $j->id) }}" class="btn btn-sm btn-warning">
+                                    {{-- Dosen hanya bisa edit/hapus jadwal matkulnya sendiri --}}
+                                    @if(Auth::user()->role === 'admin' ||
+                                        ($j->mataKuliah && Auth::user()->dosen &&
+                                         $j->mataKuliah->dosen_id == Auth::user()->dosen->id))
+                                    <a href="{{ route('jadwal.edit', $j->id) }}"
+                                       class="btn btn-sm btn-warning">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <form action="{{ route('jadwal.destroy', $j->id) }}" method="POST" class="d-inline"
-                                        onsubmit="return confirm('Hapus jadwal ini?')">
+                                    <form action="{{ route('jadwal.destroy', $j->id) }}"
+                                          method="POST" class="d-inline"
+                                          onsubmit="return confirm('Hapus jadwal ini?')">
                                         @csrf @method('DELETE')
-                                        <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                                        <button class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
                                     </form>
+                                    @else
+                                    <span class="text-muted small">—</span>
+                                    @endif
                                 </td>
                             </tr>
                             @endforeach
@@ -106,7 +130,11 @@
     @endforeach
 
     @if($jadwal->count() === 0)
-        <div class="alert alert-warning">Belum ada jadwal untuk kelas ini.</div>
+        <div class="alert alert-warning">
+            Belum ada jadwal
+            @if($isDosen ?? false) untuk mata kuliah yang Anda ampu @endif
+            di kelas ini.
+        </div>
     @endif
 @endif
 

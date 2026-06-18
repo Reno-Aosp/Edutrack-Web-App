@@ -14,19 +14,53 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
-class DashboardController extends Controller {
+class DashboardController extends Controller
+{
+    public function index()
+    {
+        $user = Auth::user();
 
-    public function index() {
-        $totalMahasiswa = Mahasiswa::count();
+        // ── DASHBOARD DOSEN ──────────────────────────────────────
+        if ($user->role === 'dosen') {
+            $dosen = $user->dosen;
+
+            // Matkul yang dia ajar (dengan relasi kelas)
+            $dosenMatkul = $dosen
+                ? MataKuliah::with('kelas')
+                    ->where('dosen_id', $dosen->id)
+                    ->get()
+                : collect();
+
+            // Kelas unik dari semua matkul yang dia ajar
+            $dosenKelas = $dosenMatkul
+                ->flatMap(fn($mk) => $mk->kelas)
+                ->unique('id')
+                ->values();
+
+            // Hitung total mahasiswa unik di semua kelas yang diajar
+            $kelasIds = $dosenKelas->pluck('id');
+            $dosenTotalMahasiswa = Mahasiswa::whereHas('kelas', function ($q) use ($kelasIds) {
+                $q->whereIn('kelas.id', $kelasIds);
+            })->count();
+
+            return view('dashboard', compact(
+                'dosenMatkul',
+                'dosenKelas',
+                'dosenTotalMahasiswa'
+            ));
+        }
+
+        // ── DASHBOARD ADMIN ──────────────────────────────────────
+        $totalMahasiswa  = Mahasiswa::count();
         $totalMataKuliah = MataKuliah::count();
-        $totalDosen = Dosen::count();
-        $totalKelas = Kelas::count();
-        $totalAbsensi = Absensi::count();
-        $totalNilai = Nilai::count();
+        $totalDosen      = Dosen::count();
+        $totalKelas      = Kelas::count();
+        $totalAbsensi    = Absensi::count();
+        $totalNilai      = Nilai::count();
         $recentMahasiswa = Mahasiswa::latest()->take(5)->get();
-        
+
         return view('dashboard', compact(
-            'totalMahasiswa', 
+            'totalMahasiswa',
             'totalMataKuliah',
             'totalDosen',
             'totalKelas',
@@ -36,7 +70,11 @@ class DashboardController extends Controller {
         ));
     }
 
-    public function login(Request $request) {
+    // ─────────────────────────────────────────────────────────────
+    // AUTH
+    // ─────────────────────────────────────────────────────────────
+    public function login(Request $request)
+    {
         $request->validate([
             'email'    => 'required|email',
             'password' => 'required',
@@ -61,35 +99,39 @@ class DashboardController extends Controller {
         ]);
     }
 
-    public function logout(Request $request) {
+    public function logout(Request $request)
+    {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         return redirect()->route('login');
     }
 
-    public function createUser() {
+    // ─────────────────────────────────────────────────────────────
+    // USER MANAGEMENT
+    // ─────────────────────────────────────────────────────────────
+    public function userList()
+    {
+        $users = User::all();
+        return view('users.index', compact('users'));
+    }
+
+    public function createUser()
+    {
         $kelas = Kelas::all();
         return view('users.create', compact('kelas'));
     }
 
-    public function storeUser(Request $request) {
-        // Get selected kelas and extract angkatan/semester from first kelas
-        $angkatanForDB = null;
-        if ($request->kelas_ids && count($request->kelas_ids) > 0) {
-            $firstKelas = Kelas::find($request->kelas_ids[0]);
-            if ($firstKelas) {
-                $angkatanForDB = $firstKelas->angkatan;
-            }
-        }
-
+    public function storeUser(Request $request)
+    {
         $request->validate([
             'name'     => 'required|string|max:100',
             'email'    => 'required|email|unique:users',
             'password' => 'required|min:6',
             'role'     => 'required|in:admin,dosen,mahasiswa',
-            'nim'      => 'required_if:role,mahasiswa|unique:mahasiswa,nim',
-            'prodi'    => 'required_if:role,mahasiswa',
+            'nim'      => 'required_if:role,mahasiswa|nullable|unique:mahasiswa,nim',
+            'prodi'    => 'required_if:role,mahasiswa|nullable',
+            'kelas_id' => 'nullable|exists:kelas,id',
         ]);
 
         $user = User::create([
@@ -99,33 +141,27 @@ class DashboardController extends Controller {
             'role'     => $request->role,
         ]);
 
-        // ✅ Auto buat dosen jika role dosen
         if ($request->role === 'dosen') {
-            $dosenExist = \App\Models\Dosen::where('user_id', $user->id)->first();
-            if (!$dosenExist) {
-                \App\Models\Dosen::create([
-                    'user_id' => $user->id,
-                    'nidn'    => 'NIDN-' . $user->id,
-                ]);
-            }
+            \App\Models\Dosen::firstOrCreate(
+                ['user_id' => $user->id],
+                ['nidn'    => 'NIDN-' . $user->id]
+            );
         }
 
-        // ✅ Auto buat mahasiswa jika role mahasiswa
         if ($request->role === 'mahasiswa') {
-            $mahasiswaExist = Mahasiswa::where('user_id', $user->id)->first();
-            if (!$mahasiswaExist) {
-                $mahasiswa = Mahasiswa::create([
-                    'user_id'  => $user->id,
-                    'nama'     => $request->name,
-                    'nim'      => $request->nim,
-                    'prodi'    => $request->prodi,
-                    'angkatan' => $angkatanForDB,
-                ]);
-
-                // Sync dengan kelas jika ada pilihan
-                if ($request->kelas_ids) {
-                    $mahasiswa->kelas()->sync($request->kelas_ids);
-                }
+            $angkatanForDB = null;
+            if ($request->kelas_id) {
+                $angkatanForDB = Kelas::find($request->kelas_id)?->angkatan;
+            }
+            $mahasiswa = Mahasiswa::create([
+                'user_id'  => $user->id,
+                'nama'     => $request->name,
+                'nim'      => $request->nim,
+                'prodi'    => $request->prodi,
+                'angkatan' => $angkatanForDB,
+            ]);
+            if ($request->kelas_id) {
+                $mahasiswa->kelas()->sync([$request->kelas_id]);
             }
         }
 
@@ -133,58 +169,48 @@ class DashboardController extends Controller {
             ->with('success', 'User berhasil ditambahkan!');
     }
 
-    public function userList() {
-        $users = User::all();
-        return view('users.index', compact('users'));
-    }
-
-    public function editUser($id) {
-        $user = User::findOrFail($id);
+    public function editUser($id)
+    {
+        $user  = User::with(['mahasiswa.kelas'])->findOrFail($id);
         $kelas = Kelas::all();
         return view('users.edit', compact('user', 'kelas'));
     }
 
-    public function updateUser(Request $request, $id) {
-        // Get selected kelas and extract angkatan/semester from first kelas
-        $angkatanForDB = null;
-        if ($request->kelas_ids && count($request->kelas_ids) > 0) {
-            $firstKelas = Kelas::find($request->kelas_ids[0]);
-            if ($firstKelas) {
-                $angkatanForDB = $firstKelas->angkatan;
-            }
-        }
-
-        $user = User::findOrFail($id);
+    public function updateUser(Request $request, $id)
+    {
+        $user      = User::findOrFail($id);
         $mahasiswa = Mahasiswa::where('user_id', $user->id)->first();
 
-        // Add validation for NIM
         $request->validate([
-            'nim'      => 'required_if:role,mahasiswa|unique:mahasiswa,nim' . ($mahasiswa ? ',' . $mahasiswa->id : ''),
-            'prodi'    => 'required_if:role,mahasiswa',
+            'name'     => 'required|string|max:100',
+            'role'     => 'required|in:admin,dosen,mahasiswa',
+            'nim'      => 'required_if:role,mahasiswa|nullable|unique:mahasiswa,nim'
+                          . ($mahasiswa ? ',' . $mahasiswa->id : ''),
+            'prodi'    => 'required_if:role,mahasiswa|nullable',
+            'kelas_id' => 'nullable|exists:kelas,id',
+            'password' => 'nullable|min:6',
         ]);
 
         $user->name = $request->name;
         $user->role = $request->role;
 
-        if ($request->password) {
+        if ($request->filled('password') && $request->role === 'admin') {
             $user->password = Hash::make($request->password);
         }
-
         $user->save();
 
-        // ✅ Cek by user_id, bukan hanya relasi
         if ($request->role === 'dosen') {
-            $dosenExist = \App\Models\Dosen::where('user_id', $user->id)->first();
-            if (!$dosenExist) {
-                \App\Models\Dosen::create([
-                    'user_id' => $user->id,
-                    'nidn'    => 'NIDN-' . $user->id,
-                ]);
-            }
+            \App\Models\Dosen::firstOrCreate(
+                ['user_id' => $user->id],
+                ['nidn'    => 'NIDN-' . $user->id]
+            );
         }
 
-        // ✅ Handle mahasiswa
         if ($request->role === 'mahasiswa') {
+            $angkatanForDB = null;
+            if ($request->kelas_id) {
+                $angkatanForDB = Kelas::find($request->kelas_id)?->angkatan;
+            }
             if (!$mahasiswa) {
                 $mahasiswa = Mahasiswa::create([
                     'user_id'  => $user->id,
@@ -201,9 +227,8 @@ class DashboardController extends Controller {
                     'angkatan' => $angkatanForDB,
                 ]);
             }
-
-            if ($request->kelas_ids) {
-                $mahasiswa->kelas()->sync($request->kelas_ids);
+            if ($request->kelas_id) {
+                $mahasiswa->kelas()->sync([$request->kelas_id]);
             } else {
                 $mahasiswa->kelas()->detach();
             }
@@ -213,7 +238,8 @@ class DashboardController extends Controller {
             ->with('success', 'User berhasil diupdate!');
     }
 
-    public function destroyUser($id) {
+    public function destroyUser($id)
+    {
         User::findOrFail($id)->delete();
         return redirect()->route('users.index')
             ->with('success', 'User berhasil dihapus!');

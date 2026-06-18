@@ -18,39 +18,57 @@
         <form method="POST" action="{{ route('users.update', $user->id) }}">
             @csrf @method('PUT')
             <div class="row g-3">
+
+                {{-- Nama --}}
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Nama Lengkap</label>
                     <input type="text" name="name" class="form-control"
                         value="{{ $user->name }}" required>
                 </div>
+
+                {{-- Email (read-only) --}}
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Email</label>
                     <input type="email" class="form-control"
                         value="{{ $user->email }}" disabled>
                 </div>
+
+                {{-- Role --}}
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Role</label>
-                    <select name="role" id="roleSelect" class="form-select" required onchange="toggleMahasiswaFields()">
-                        <option value="admin" {{ $user->role == 'admin' ? 'selected' : '' }}>Admin</option>
-                        <option value="dosen" {{ $user->role == 'dosen' ? 'selected' : '' }}>Dosen</option>
+                    <select name="role" id="roleSelect" class="form-select" required
+                        onchange="toggleFieldsByRole()">
+                        <option value="admin"     {{ $user->role == 'admin'     ? 'selected' : '' }}>Admin</option>
+                        <option value="dosen"     {{ $user->role == 'dosen'     ? 'selected' : '' }}>Dosen</option>
                         <option value="mahasiswa" {{ $user->role == 'mahasiswa' ? 'selected' : '' }}>Mahasiswa</option>
                     </select>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">Password Baru <span class="text-muted small">(kosongkan jika tidak diubah)</span></label>
+
+                {{-- Password Baru — hanya tampil untuk role admin --}}
+                <div class="col-md-6" id="passwordField"
+                    style="display: {{ $user->role === 'admin' ? 'block' : 'none' }};">
+                    <label class="form-label fw-bold">
+                        Password Baru
+                        <span class="text-muted small">(kosongkan jika tidak diubah)</span>
+                    </label>
                     <input type="password" name="password" class="form-control"
                         placeholder="Min. 6 karakter">
                 </div>
 
-                <!-- Field Mahasiswa -->
-                <div id="mahasiswaFields" style="display: {{ $user->role === 'mahasiswa' ? 'block' : 'none' }};" class="col-12">
+                {{-- Field khusus Mahasiswa --}}
+                <div id="mahasiswaFields" class="col-12"
+                    style="display: {{ $user->role === 'mahasiswa' ? 'block' : 'none' }};">
                     <div class="row g-3">
+
+                        {{-- NIM --}}
                         <div class="col-md-6">
                             <label class="form-label fw-bold">NIM</label>
                             <input type="text" name="nim" class="form-control"
                                 placeholder="Nomor Induk Mahasiswa"
                                 value="{{ $user->mahasiswa->nim ?? '' }}">
                         </div>
+
+                        {{-- Prodi (text) --}}
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Program Studi</label>
                             <input type="text" name="prodi" class="form-control"
@@ -58,81 +76,108 @@
                                 value="{{ $user->mahasiswa->prodi ?? '' }}">
                         </div>
 
-                        <!-- Box untuk setiap Prodi -->
-                        <div class="col-md-12">
+                        {{-- Pilih Kelas — SINGLE SELECT (radio) --}}
+                        <div class="col-12">
                             <label class="form-label fw-bold mb-3">Pilih Program Studi & Kelas</label>
+                            <p class="text-muted small mb-3">
+                                <i class="bi bi-info-circle"></i>
+                                Pilih <strong>satu kelas</strong> untuk mahasiswa ini.
+                            </p>
                             <div class="row g-3" id="prodiBoxContainer">
                                 @php
-                                    $prodiList = $kelas->groupBy('prodi');
+                                    $prodiList      = $kelas->groupBy('prodi');
+                                    $currentKelasId = optional($user->mahasiswa?->kelas->first())->id;
                                 @endphp
+
                                 @foreach($prodiList as $prodi => $kelasPerProdi)
                                 <div class="col-md-6">
-                                    <div class="card border-2 border-primary h-100">
-                                        <div class="card-header bg-primary text-white fw-bold">
+                                    <div class="card border-2 h-100"
+                                        style="border-color:#E91E8C!important;">
+                                        <div class="card-header text-white fw-bold"
+                                            style="background:#E91E8C;">
                                             {{ $prodi }}
                                         </div>
                                         <div class="card-body">
-                                            <!-- Filter Angkatan -->
+
+                                            {{-- Filter Angkatan --}}
                                             <div class="mb-3">
                                                 <label class="form-label small fw-bold">Angkatan</label>
-                                                <div class="d-flex flex-wrap gap-2 angkatan-filter" data-prodi="{{ $prodi }}">
+                                                <div class="d-flex flex-wrap gap-2 angkatan-filter"
+                                                    data-prodi="{{ $prodi }}">
                                                     @php
-                                                        $angkatans = $kelasPerProdi->pluck('angkatan')->unique()->sort()->reverse();
+                                                        $angkatans = $kelasPerProdi->pluck('angkatan')
+                                                            ->unique()->sort()->reverse();
                                                     @endphp
                                                     @foreach($angkatans as $ang)
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary angkatan-btn"
-                                                        data-prodi="{{ $prodi }}" data-angkatan="{{ $ang }}"
-                                                        onclick="filterByAngkatanSemester('{{ $prodi }}', '{{ $ang }}', null, this)">
+                                                    <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary angkatan-btn"
+                                                        data-prodi="{{ $prodi }}"
+                                                        data-angkatan="{{ $ang }}"
+                                                        onclick="filterKelas('{{ $prodi }}', '{{ $ang }}', null, this)">
                                                         {{ $ang }}
                                                     </button>
                                                     @endforeach
                                                 </div>
                                             </div>
 
-                                            <!-- Filter Semester -->
+                                            {{-- Filter Semester --}}
                                             <div class="mb-3">
                                                 <label class="form-label small fw-bold">Semester</label>
-                                                <div class="d-flex flex-wrap gap-2 semester-filter" data-prodi="{{ $prodi }}">
+                                                <div class="d-flex flex-wrap gap-2 semester-filter"
+                                                    data-prodi="{{ $prodi }}">
                                                     @php
-                                                        $semesters = $kelasPerProdi->pluck('semester')->unique()->sort();
+                                                        $semesters = $kelasPerProdi->pluck('semester')
+                                                            ->unique()->sort();
                                                     @endphp
                                                     @foreach($semesters as $sem)
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary semester-btn"
-                                                        data-prodi="{{ $prodi }}" data-semester="{{ $sem }}"
-                                                        onclick="filterByAngkatanSemester('{{ $prodi }}', null, '{{ $sem }}', this)">
+                                                    <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary semester-btn"
+                                                        data-prodi="{{ $prodi }}"
+                                                        data-semester="{{ $sem }}"
+                                                        onclick="filterKelas('{{ $prodi }}', null, '{{ $sem }}', this)">
                                                         Sem {{ $sem }}
                                                     </button>
                                                     @endforeach
                                                 </div>
                                             </div>
 
-                                            <!-- List Kelas -->
+                                            {{-- List Kelas — RADIO (single select) --}}
                                             <div class="mb-2">
                                                 <label class="form-label small fw-bold">Kelas</label>
                                                 <div class="kelas-list" data-prodi="{{ $prodi }}">
                                                     @foreach($kelasPerProdi as $k)
                                                     <div class="form-check mb-2 kelas-item"
-                                                        data-prodi="{{ $prodi }}" data-angkatan="{{ $k->angkatan }}"
+                                                        data-prodi="{{ $prodi }}"
+                                                        data-angkatan="{{ $k->angkatan }}"
                                                         data-semester="{{ $k->semester }}">
-                                                        <input class="form-check-input kelas-checkbox" type="checkbox"
-                                                            name="kelas_ids[]" value="{{ $k->id }}" id="kelas_{{ $k->id }}"
-                                                            {{ $user->mahasiswa && $user->mahasiswa->kelas->contains($k->id) ? 'checked' : '' }}>
-                                                        <label class="form-check-label small" for="kelas_{{ $k->id }}">
+                                                        {{-- FIX: radio bukan checkbox, name="kelas_id" (bukan array) --}}
+                                                        <input class="form-check-input"
+                                                            type="radio"
+                                                            name="kelas_id"
+                                                            value="{{ $k->id }}"
+                                                            id="kelas_{{ $k->id }}"
+                                                            {{ $currentKelasId == $k->id ? 'checked' : '' }}>
+                                                        <label class="form-check-label small"
+                                                            for="kelas_{{ $k->id }}">
                                                             {{ $k->nama_kelas }}
                                                         </label>
                                                     </div>
                                                     @endforeach
                                                 </div>
                                             </div>
+
                                         </div>
                                     </div>
                                 </div>
                                 @endforeach
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
+
+            {{-- Tombol --}}
             <div class="mt-4 d-flex gap-2">
                 <button type="submit" class="btn text-white fw-bold"
                     style="background:#E91E8C;">
@@ -143,98 +188,89 @@
                 </a>
             </div>
         </form>
-
-        <script>
-            const userMahasiswa = @json($user->mahasiswa);
-
-            function toggleMahasiswaFields() {
-                const role = document.getElementById('roleSelect').value;
-                const mahasiswaFields = document.getElementById('mahasiswaFields');
-                
-                if (role === 'mahasiswa') {
-                    mahasiswaFields.style.display = 'block';
-                    restoreUserData();
-                } else {
-                    mahasiswaFields.style.display = 'none';
-                }
-            }
-
-            function filterByAngkatanSemester(prodi, angkatan, semester, button) {
-                // Update button styles
-                if (angkatan) {
-                    // Angkatan button clicked
-                    document.querySelectorAll(`.angkatan-filter[data-prodi="${prodi}"] .angkatan-btn`).forEach(btn => {
-                        btn.classList.remove('btn-secondary');
-                        btn.classList.add('btn-outline-secondary');
-                    });
-                    button.classList.remove('btn-outline-secondary');
-                    button.classList.add('btn-secondary');
-                } else if (semester) {
-                    // Semester button clicked
-                    document.querySelectorAll(`.semester-filter[data-prodi="${prodi}"] .semester-btn`).forEach(btn => {
-                        btn.classList.remove('btn-secondary');
-                        btn.classList.add('btn-outline-secondary');
-                    });
-                    button.classList.remove('btn-outline-secondary');
-                    button.classList.add('btn-secondary');
-                }
-
-                // Filter kelas based on selection
-                const kelasList = document.querySelector(`.kelas-list[data-prodi="${prodi}"]`);
-                const kelasItems = kelasList.querySelectorAll('.kelas-item');
-
-                kelasItems.forEach(item => {
-                    let show = true;
-
-                    // Get selected angkatan and semester for this prodi
-                    const selectedAngkatan = document.querySelector(`.angkatan-filter[data-prodi="${prodi}"] .angkatan-btn.btn-secondary`);
-                    const selectedSemester = document.querySelector(`.semester-filter[data-prodi="${prodi}"] .semester-btn.btn-secondary`);
-
-                    if (selectedAngkatan && item.dataset.angkatan != selectedAngkatan.dataset.angkatan) {
-                        show = false;
-                    }
-                    if (selectedSemester && item.dataset.semester != selectedSemester.dataset.semester) {
-                        show = false;
-                    }
-
-                    item.style.display = show ? 'block' : 'none';
-                });
-            }
-
-            function restoreUserData() {
-                // If editing existing user, auto-select their current prodi/angkatan
-                if (userMahasiswa && userMahasiswa.prodi) {
-                    const prodi = userMahasiswa.prodi;
-                    const angkatan = userMahasiswa.angkatan;
-                    
-                    // Find and click the angkatan button for their prodi
-                    const angkatanBtns = document.querySelectorAll(`.angkatan-filter[data-prodi="${prodi}"] .angkatan-btn`);
-                    angkatanBtns.forEach(btn => {
-                        if (btn.dataset.angkatan == angkatan) {
-                            btn.click();
-                        }
-                    });
-
-                    // Find semester from first kelas they're enrolled in
-                    if (userMahasiswa.kelas && userMahasiswa.kelas.length > 0) {
-                        const firstKelas = userMahasiswa.kelas[0];
-                        const semesterBtns = document.querySelectorAll(`.semester-filter[data-prodi="${prodi}"] .semester-btn`);
-                        semesterBtns.forEach(btn => {
-                            if (btn.dataset.semester == firstKelas.semester) {
-                                btn.click();
-                            }
-                        });
-                    }
-                }
-            }
-
-            // Restore data on page load if role is mahasiswa
-            document.addEventListener('DOMContentLoaded', () => {
-                if (document.getElementById('mahasiswaFields').style.display === 'block') {
-                    restoreUserData();
-                }
-            });
-        </script>
     </div>
 </div>
+
+<script>
+const userMahasiswa = @json($user->mahasiswa);
+
+// ── Tampilkan/sembunyikan field sesuai role ──────────────────────────────────
+function toggleFieldsByRole() {
+    const role            = document.getElementById('roleSelect').value;
+    const passwordField   = document.getElementById('passwordField');
+    const mahasiswaFields = document.getElementById('mahasiswaFields');
+
+    // Password hanya untuk admin
+    passwordField.style.display   = (role === 'admin')     ? 'block' : 'none';
+    // Field mahasiswa hanya untuk mahasiswa
+    mahasiswaFields.style.display = (role === 'mahasiswa') ? 'block' : 'none';
+
+    // Kosongkan password jika disembunyikan
+    if (role !== 'admin') {
+        const pwInput = document.querySelector('input[name="password"]');
+        if (pwInput) pwInput.value = '';
+    }
+}
+
+// ── Filter kelas berdasarkan angkatan / semester ─────────────────────────────
+function filterKelas(prodi, angkatan, semester, clickedBtn) {
+    // Toggle button active style
+    if (angkatan !== null) {
+        document.querySelectorAll(`.angkatan-filter[data-prodi="${prodi}"] .angkatan-btn`)
+            .forEach(b => {
+                b.classList.remove('btn-secondary');
+                b.classList.add('btn-outline-secondary');
+            });
+    } else {
+        document.querySelectorAll(`.semester-filter[data-prodi="${prodi}"] .semester-btn`)
+            .forEach(b => {
+                b.classList.remove('btn-secondary');
+                b.classList.add('btn-outline-secondary');
+            });
+    }
+    clickedBtn.classList.remove('btn-outline-secondary');
+    clickedBtn.classList.add('btn-secondary');
+
+    // Show/hide kelas items
+    const items = document.querySelectorAll(`.kelas-list[data-prodi="${prodi}"] .kelas-item`);
+    items.forEach(item => {
+        const selAngkatan = document.querySelector(
+            `.angkatan-filter[data-prodi="${prodi}"] .angkatan-btn.btn-secondary`
+        );
+        const selSemester = document.querySelector(
+            `.semester-filter[data-prodi="${prodi}"] .semester-btn.btn-secondary`
+        );
+
+        let show = true;
+        if (selAngkatan && item.dataset.angkatan != selAngkatan.dataset.angkatan) show = false;
+        if (selSemester && item.dataset.semester != selSemester.dataset.semester) show = false;
+
+        item.style.display = show ? 'block' : 'none';
+    });
+}
+
+// ── Restore filter saat halaman load (untuk mahasiswa yang sudah punya kelas) ─
+document.addEventListener('DOMContentLoaded', () => {
+    if (!userMahasiswa || !userMahasiswa.prodi) return;
+    if (document.getElementById('mahasiswaFields').style.display !== 'block') return;
+
+    const prodi    = userMahasiswa.prodi;
+    const angkatan = userMahasiswa.angkatan;
+
+    // Klik tombol angkatan yang sesuai
+    document.querySelectorAll(`.angkatan-filter[data-prodi="${prodi}"] .angkatan-btn`)
+        .forEach(btn => {
+            if (btn.dataset.angkatan == angkatan) btn.click();
+        });
+
+    // Klik tombol semester dari kelas pertama
+    if (userMahasiswa.kelas && userMahasiswa.kelas.length > 0) {
+        const sem = userMahasiswa.kelas[0].semester;
+        document.querySelectorAll(`.semester-filter[data-prodi="${prodi}"] .semester-btn`)
+            .forEach(btn => {
+                if (btn.dataset.semester == sem) btn.click();
+            });
+    }
+});
+</script>
 @endsection

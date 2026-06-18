@@ -4,12 +4,18 @@
 
 @section('content')
 <div class="mb-4">
-    <h5 class="fw-bold mb-3" style="color:#5C1033;">Rapor Akademik</h5>
-    <small class="text-muted">Nilai dan prestasi akademik Anda</small>
+    <h5 class="fw-bold mb-1" style="color:#5C1033;">Rapor Akademik</h5>
+    <small class="text-muted">
+        @if($isDosen ?? false)
+            Rapor mahasiswa di kelas yang Anda ampu
+        @else
+            Nilai dan prestasi akademik mahasiswa
+        @endif
+    </small>
 </div>
 
 @if(!$mahasiswa)
-    {{-- Tampil dropdown untuk admin memilih kelas terlebih dahulu --}}
+    {{-- ── Pilih Kelas ── --}}
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
             <h6 class="fw-bold mb-3">Pilih Kelas</h6>
@@ -29,18 +35,17 @@
     </div>
 
     @if($kelasId && !$allMahasiswa->isEmpty())
-    {{-- Tampil dropdown untuk memilih mahasiswa dari kelas yang dipilih --}}
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">
             <h6 class="fw-bold mb-3">Pilih Mahasiswa</h6>
             <form method="GET" action="{{ route('rapot.index') }}" class="row g-3">
+                <input type="hidden" name="kelas_id" value="{{ $kelasId }}">
                 <div class="col-md-6">
-                    <input type="hidden" name="kelas_id" value="{{ $kelasId }}">
                     <select name="mahasiswa_id" class="form-select" required>
                         <option value="">-- Pilih Mahasiswa --</option>
                         @foreach($allMahasiswa as $mhs)
                             <option value="{{ $mhs->id }}">
-                                {{ $mhs->nim }} - {{ $mhs->user->name }}
+                                {{ $mhs->nim }} - {{ $mhs->user->name ?? $mhs->nama }}
                             </option>
                         @endforeach
                     </select>
@@ -58,215 +63,161 @@
         <i class="bi bi-info-circle"></i> Kelas ini tidak memiliki mahasiswa
     </div>
     @endif
-@else
-{{-- Kartu Informasi Mahasiswa --}}
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-4" style="background:#FDE8F2;">
-            <div class="card-body">
-                <small class="text-muted d-block mb-1">Nama</small>
-                <strong>{{ $mahasiswa->user->name }}</strong>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-4" style="background:#FDE8F2;">
-            <div class="card-body">
-                <small class="text-muted d-block mb-1">NIM</small>
-                <strong>{{ $mahasiswa->nim }}</strong>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-4" style="background:#FDE8F2;">
-            <div class="card-body">
-                <small class="text-muted d-block mb-1">Program Studi</small>
-                <strong>{{ $mahasiswa->prodi }}</strong>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-4" style="background:#FDE8F2;">
-            <div class="card-body">
-                <small class="text-muted d-block mb-1">Angkatan</small>
-                <strong>{{ $mahasiswa->angkatan }}</strong>
-            </div>
-        </div>
-    </div>
-</div>
 
-@if(Auth::user()->role === 'admin')
+@else
+    {{-- ── Info Mahasiswa ── --}}
+    <div class="row g-3 mb-4">
+        @foreach([
+            ['Nama',          $mahasiswa->user->name ?? $mahasiswa->nama],
+            ['NIM',           $mahasiswa->nim],
+            ['Program Studi', $mahasiswa->prodi],
+            ['Angkatan',      $mahasiswa->angkatan],
+        ] as [$label, $val])
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4" style="background:#FDE8F2;">
+                <div class="card-body">
+                    <small class="text-muted d-block mb-1">{{ $label }}</small>
+                    <strong>{{ $val }}</strong>
+                </div>
+            </div>
+        </div>
+        @endforeach
+    </div>
+
     <div class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="card-body p-4">
-            <a href="{{ route('rapot.index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Kembali ke Pilih Kelas
+        <div class="card-body p-3">
+            <a href="{{ route('rapot.index', ['kelas_id' => $kelasId]) }}"
+                class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Kembali ke Pilih Mahasiswa
             </a>
         </div>
     </div>
-@endif
 
-{{-- Pilih Semester --}}
-@if(empty($semuaSemester))
-    <div class="alert alert-info">
-        <i class="bi bi-info-circle"></i> Belum ada data nilai untuk ditampilkan
-    </div>
-@else
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="card-body p-4">
-            <h6 class="fw-bold mb-3">Pilih Semester</h6>
-            <div class="row g-2">
-                @foreach($semuaSemester as $sem)
+    {{-- ── Pilih Semester ── --}}
+    @if(empty($semuaSemester))
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            Belum ada data nilai
+            @if($isDosen ?? false) untuk mata kuliah yang Anda ampu @endif
+        </div>
+    @else
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3">Pilih Semester</h6>
+                <div class="row g-2">
+                    @foreach($semuaSemester as $sem)
                     <div class="col-auto">
-                        @if(Auth::user()->role === 'admin')
-                            <a href="{{ route('rapot.index', ['kelas_id' => $kelasId, 'mahasiswa_id' => $mahasiswa->id, 'semester' => $sem]) }}" 
-                                class="btn btn-sm {{ $semester === $sem ? 'text-white' : 'btn-outline-secondary' }}"
-                                style="{{ $semester === $sem ? 'background:#E91E8C;' : '' }}">
-                                {{ $sem }}
-                            </a>
-                        @else
-                            <a href="{{ route('rapot.index', ['semester' => $sem]) }}" 
-                                class="btn btn-sm {{ $semester === $sem ? 'text-white' : 'btn-outline-secondary' }}"
-                                style="{{ $semester === $sem ? 'background:#E91E8C;' : '' }}">
-                                {{ $sem }}
-                            </a>
-                        @endif
+                        <a href="{{ route('rapot.index', [
+                                'kelas_id'     => $kelasId,
+                                'mahasiswa_id' => $mahasiswa->id,
+                                'semester'     => $sem,
+                           ]) }}"
+                            class="btn btn-sm {{ $semester === $sem ? 'text-white' : 'btn-outline-secondary' }}"
+                            style="{{ $semester === $sem ? 'background:#E91E8C;' : '' }}">
+                            {{ $sem }}
+                        </a>
                     </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
+        @if($semester && !$nilaiData->isEmpty())
+            {{-- Summary --}}
+            <div class="row g-3 mb-4">
+                @foreach([
+                    ['IPK',          $ipk,              '#E91E8C'],
+                    ['Total SKS',    $totalSks,         '#E91E8C'],
+                    ['Mata Kuliah',  $nilaiData->count(),'#E91E8C'],
+                ] as [$lbl, $val, $clr])
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card-body text-center">
+                            <small class="text-muted d-block">{{ $lbl }}</small>
+                            <h3 class="fw-bold" style="color:{{ $clr }};">{{ $val }}</h3>
+                        </div>
+                    </div>
+                </div>
                 @endforeach
             </div>
-        </div>
-    </div>
 
-    {{-- Tampil Data Rapor --}}
-    @if($semester && !$nilaiData->isEmpty())
-        <div class="row g-3 mb-4">
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm rounded-4">
-                    <div class="card-body text-center">
-                        <small class="text-muted d-block">IPK</small>
-                        <h3 class="fw-bold" style="color:#E91E8C;">{{ $ipk }}</h3>
+            {{-- Tabel Nilai --}}
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3">
+                        Nilai Semester: <span class="text-muted">{{ $semester }}</span>
+                        @if($isDosen ?? false)
+                            <small class="text-muted ms-2">(Hanya mata kuliah yang Anda ampu)</small>
+                        @endif
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead style="background:#FDE8F2;">
+                                <tr>
+                                    <th>Kode</th>
+                                    <th>Mata Kuliah</th>
+                                    <th width="6%">SKS</th>
+                                    <th width="8%">Tugas</th>
+                                    <th width="8%">UTS</th>
+                                    <th width="8%">UAS</th>
+                                    <th width="10%">Nilai Akhir</th>
+                                    <th width="7%">Grade</th>
+                                    <th width="12%">Kehadiran</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($nilaiData as $nilai)
+                                <tr>
+                                    <td><small class="fw-bold">{{ $nilai['matkul_kode'] }}</small></td>
+                                    <td><small>{{ $nilai['matkul_nama'] }}</small></td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark">{{ $nilai['sks'] }}</span>
+                                    </td>
+                                    <td class="text-center">{{ $nilai['nilai_tugas'] !== '-' ? $nilai['nilai_tugas'] : '-' }}</td>
+                                    <td class="text-center">{{ $nilai['nilai_uts'] !== '-' ? $nilai['nilai_uts'] : '-' }}</td>
+                                    <td class="text-center">{{ $nilai['nilai_uas'] !== '-' ? $nilai['nilai_uas'] : '-' }}</td>
+                                    <td class="text-center fw-bold">
+                                        {{ $nilai['nilai_akhir'] !== '-' ? round($nilai['nilai_akhir'], 1) : '-' }}
+                                    </td>
+                                    <td class="text-center">
+                                        @php
+                                            $gc = match($nilai['grade']) {
+                                                'A' => 'success', 'B' => 'info',
+                                                'C' => 'warning', default => 'danger'
+                                            };
+                                        @endphp
+                                        <span class="badge bg-{{ $gc }}">{{ $nilai['grade'] }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <small>
+                                            {{ $nilai['hadir'] }}/{{ $nilai['total_pertemuan'] }}<br>
+                                            <span class="badge bg-secondary">{{ $nilai['presensi_persen'] }}%</span>
+                                        </small>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm rounded-4">
-                    <div class="card-body text-center">
-                        <small class="text-muted d-block">Total SKS</small>
-                        <h3 class="fw-bold" style="color:#E91E8C;">{{ $totalSks }}</h3>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm rounded-4">
-                    <div class="card-body text-center">
-                        <small class="text-muted d-block">Mata Kuliah</small>
-                        <h3 class="fw-bold" style="color:#E91E8C;">{{ $nilaiData->count() }}</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        {{-- Tabel Nilai Detail --}}
-        <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-body">
-                <h6 class="fw-bold mb-3">Nilai Semester: <span class="text-muted">{{ $semester }}</span></h6>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead style="background:#FDE8F2;">
-                            <tr>
-                                <th>Kode</th>
-                                <th>Mata Kuliah</th>
-                                <th width="8%">SKS</th>
-                                <th width="8%">Tugas</th>
-                                <th width="8%">UTS</th>
-                                <th width="8%">UAS</th>
-                                <th width="10%">Nilai Akhir</th>
-                                <th width="8%">Grade</th>
-                                <th width="12%">Kehadiran</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($nilaiData as $nilai)
-                            <tr>
-                                <td>
-                                    <small class="fw-bold">{{ $nilai['matkul_kode'] }}</small>
-                                </td>
-                                <td>
-                                    <small>{{ $nilai['matkul_nama'] }}</small>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-light text-dark">{{ $nilai['sks'] }}</span>
-                                </td>
-                                <td class="text-center">
-                                    @if($nilai['nilai_tugas'] !== '-')
-                                        {{ $nilai['nilai_tugas'] }}
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </td>
-                                <td class="text-center">
-                                    @if($nilai['nilai_uts'] !== '-')
-                                        {{ $nilai['nilai_uts'] }}
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </td>
-                                <td class="text-center">
-                                    @if($nilai['nilai_uas'] !== '-')
-                                        {{ $nilai['nilai_uas'] }}
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </td>
-                                <td class="text-center fw-bold">
-                                    @if($nilai['nilai_akhir'] !== '-')
-                                        {{ round($nilai['nilai_akhir'], 1) }}
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-{{ $nilai['grade'] === 'A' ? 'success' : ($nilai['grade'] === 'B' ? 'info' : ($nilai['grade'] === 'C' ? 'warning' : 'danger')) }}">
-                                        {{ $nilai['grade'] }}
-                                    </span>
-                                </td>
-                                <td class="text-center">
-                                    <small>
-                                        {{ $nilai['hadir'] }}/{{ $nilai['total_pertemuan'] }}
-                                        <br>
-                                        <span class="badge bg-secondary">{{ $nilai['presensi_persen'] }}%</span>
-                                    </small>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+            <div class="alert alert-info mt-4">
+                <h6 class="fw-bold mb-2">Keterangan Grade:</h6>
+                <div class="row g-3 small">
+                    <div class="col-md-3"><strong>A:</strong> 85-100 (Sangat Baik)</div>
+                    <div class="col-md-3"><strong>B:</strong> 75-84 (Baik)</div>
+                    <div class="col-md-3"><strong>C:</strong> 65-74 (Cukup)</div>
+                    <div class="col-md-3"><strong>D/E:</strong> &lt; 65 (Kurang)</div>
                 </div>
             </div>
-        </div>
 
-        {{-- Catatan --}}
-        <div class="alert alert-info mt-4">
-            <h6 class="fw-bold mb-2">Keterangan Nilai:</h6>
-            <div class="row g-3 small">
-                <div class="col-md-3">
-                    <strong>A:</strong> 85-100 (Sangat Baik)
-                </div>
-                <div class="col-md-3">
-                    <strong>B:</strong> 75-84 (Baik)
-                </div>
-                <div class="col-md-3">
-                    <strong>C:</strong> 65-74 (Cukup)
-                </div>
-                <div class="col-md-3">
-                    <strong>D/E:</strong> < 65 (Kurang)
-                </div>
+        @elseif($semester)
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                Belum ada data nilai untuk semester {{ $semester }}
             </div>
-        </div>
-    @elseif($semester)
-        <div class="alert alert-warning">
-            <i class="bi bi-exclamation-triangle"></i> Belum ada data nilai untuk semester {{ $semester }}
-        </div>
+        @endif
     @endif
-@endif
 @endif
 @endsection

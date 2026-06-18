@@ -13,6 +13,17 @@
         .sidebar .active { color: #fff; background: #E91E8C; border-radius: 8px; }
         .brand { color: #5C1033; font-weight: bold; font-size: 1.4rem; }
         .top-navbar { background: #fff; border-bottom: 2px solid #FF6EC7; }
+        .role-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .role-admin  { background: #5C1033; color: #fff; }
+        .role-dosen  { background: #E91E8C; color: #fff; }
     </style>
 </head>
 <body class="bg-light">
@@ -20,20 +31,31 @@
     <div class="row">
         <!-- Sidebar -->
         <div class="col-md-2 sidebar p-3">
-            <div class="brand mb-4 text-center">🎓 EduTrack</div>
+            <div class="brand mb-1 text-center">🎓 EduTrack</div>
+            {{-- Role badge --}}
+            <div class="text-center mb-4">
+                @if(Auth::user()->role === 'admin')
+                    <span class="role-badge role-admin">Admin</span>
+                @elseif(Auth::user()->role === 'dosen')
+                    <span class="role-badge role-dosen">Dosen</span>
+                @endif
+            </div>
+
             <ul class="nav flex-column gap-2">
+                {{-- Dashboard — semua role --}}
                 <li class="nav-item">
                     <a href="{{ route('dashboard') }}" class="nav-link px-3 py-2 {{ request()->is('dashboard') ? 'active' : '' }}">
                         <i class="bi bi-speedometer2"></i> Dashboard
                     </a>
                 </li>
+
+                {{-- ── ADMIN ONLY ── --}}
                 @if(Auth::user()->role === 'admin')
                 <li class="nav-item">
                     <a href="{{ route('users.index') }}" class="nav-link px-3 py-2 {{ request()->is('users*') ? 'active' : '' }}">
                         <i class="bi bi-people-fill"></i> Kelola User
                     </a>
                 </li>
-                @endif
                 <li class="nav-item">
                     <a href="{{ route('mahasiswa.index') }}" class="nav-link px-3 py-2 {{ request()->is('mahasiswa*') ? 'active' : '' }}">
                         <i class="bi bi-people"></i> Mahasiswa
@@ -54,6 +76,18 @@
                         <i class="bi bi-clock"></i> Jadwal
                     </a>
                 </li>
+                @endif
+
+                {{-- ── DOSEN ONLY ── --}}
+                @if(Auth::user()->role === 'dosen')
+                <li class="nav-item">
+                    <a href="{{ route('jadwal.index') }}" class="nav-link px-3 py-2 {{ request()->is('jadwal*') ? 'active' : '' }}">
+                        <i class="bi bi-clock"></i> Jadwal
+                    </a>
+                </li>
+                @endif
+
+                {{-- ── ADMIN & DOSEN ── --}}
                 <li class="nav-item">
                     <a href="{{ route('nilai.index') }}" class="nav-link px-3 py-2 {{ request()->is('nilai*') ? 'active' : '' }}">
                         <i class="bi bi-journal-check"></i> Nilai
@@ -69,15 +103,13 @@
                         <i class="bi bi-calendar-check"></i> Absensi
                     </a>
                 </li>
-
-                {{-- TAMBAHAN BARU --}}
                 <li class="nav-item">
                     <a href="{{ route('sesi-absensi.index') }}" class="nav-link px-3 py-2 {{ request()->is('sesi-absensi*') ? 'active' : '' }}">
                         <i class="bi bi-door-open"></i> Sesi Absensi
                     </a>
                 </li>
-
             </ul>
+
             <div class="mt-4">
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
@@ -98,6 +130,12 @@
             @if(session('success'))
                 <div class="alert alert-success alert-dismissible fade show">
                     {{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="alert alert-danger alert-dismissible fade show">
+                    {{ session('error') }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             @endif

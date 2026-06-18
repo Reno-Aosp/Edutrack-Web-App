@@ -25,47 +25,49 @@ class RapotController extends Controller {
         }
 
         $nilai = $nilaiQuery->get()->map(function ($n) {
-            // Hitung total absensi
             $totalAbsensi = Absensi::where('mahasiswa_id', $n->mahasiswa_id)
                             ->where('matkul_id', $n->matkul_id)
-                            ->where('semester', $n->semester)
                             ->count();
             $hadir = Absensi::where('mahasiswa_id', $n->mahasiswa_id)
                             ->where('matkul_id', $n->matkul_id)
-                            ->where('semester', $n->semester)
                             ->where('status', 'hadir')
                             ->count();
 
             return [
-                'matkul'       => $n->mataKuliah->nama ?? '-',
-                'kode'         => $n->mataKuliah->kode ?? '-',
-                'sks'          => $n->mataKuliah->sks ?? 0,
-                'nilai_tugas'  => $n->nilai_tugas,
-                'nilai_uts'    => $n->nilai_uts,
-                'nilai_uas'    => $n->nilai_uas,
-                'nilai_akhir'  => $n->nilai_akhir,
-                'grade'        => $this->getGrade($n->nilai_akhir),
-                'semester'     => $n->semester,
-                'hadir'        => $hadir,
+                'matkul'          => $n->mataKuliah->nama ?? '-',
+                'kode'            => $n->mataKuliah->kode ?? '-',
+                'sks'             => $n->mataKuliah->sks ?? 0,
+                'nilai_tugas'     => (float) ($n->nilai_tugas ?? 0),
+                'nilai_uts'       => (float) ($n->nilai_uts ?? 0),
+                'nilai_uas'       => (float) ($n->nilai_uas ?? 0),
+                'nilai_akhir'     => (float) ($n->nilai_akhir ?? 0),
+                'grade'           => $this->getGrade($n->nilai_akhir),
+                'semester'        => $n->semester,
+                'hadir'           => $hadir,
                 'total_pertemuan' => $totalAbsensi,
             ];
         });
 
+        $totalSks   = $nilai->sum('sks');
+        $totalBobot = $nilai->sum(fn($n) => ($n['nilai_akhir'] / 100 * 4) * $n['sks']);
+        $ipk        = $totalSks > 0 ? round($totalBobot / $totalSks, 2) : 0;
+
         return response()->json([
             'mahasiswa' => [
-                'nama'    => $mahasiswa->nama ?? $user->name,
-                'nim'     => $mahasiswa->nim,
-                'prodi'   => $mahasiswa->prodi,
+                'nama'     => $mahasiswa->nama ?? $user->name,
+                'nim'      => $mahasiswa->nim,
+                'prodi'    => $mahasiswa->prodi,
                 'angkatan' => $mahasiswa->angkatan,
             ],
-            'semester' => $semester ?? 'Semua',
-            'nilai'    => $nilai,
-            'total_sks' => $nilai->sum('sks'),
-            'ipk'       => $nilai->count() > 0 ? round($nilai->avg('nilai_akhir') / 25, 2) : 0,
+            'semester'  => $semester ?? 'Semua',
+            'nilai'     => $nilai,
+            'total_sks' => $totalSks,
+            'ipk'       => $ipk,
         ]);
     }
 
     private function getGrade($nilai) {
+        if (!$nilai) return 'E';
         if ($nilai >= 85) return 'A';
         if ($nilai >= 75) return 'B';
         if ($nilai >= 65) return 'C';

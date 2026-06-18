@@ -9,6 +9,7 @@ use App\Http\Controllers\MataKuliahController;
 use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\RapotController;
 use App\Http\Controllers\SesiAbsensiController;
+use App\Http\Controllers\LifeStyleController;
 
 Route::options('{any}', function () {
     return response('', 200)
@@ -16,6 +17,8 @@ Route::options('{any}', function () {
         ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 })->where('any', '.*');
+
+Route::post('/lifestyle-suggestion', [LifeStyleController::class, 'suggest']);
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -50,5 +53,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/jadwal', [JadwalController::class, 'index']);
     Route::get('/rapot', [RapotController::class, 'index']);
 
-    Route::get('/sesi-aktif', [SesiAbsensiController::class, 'sesiAktif']);
+    Route::get('/sesi-aktif', [SesiAbsensiController::class, 'aktif']);
+    Route::post('/profile/update', [AuthController::class, 'updateProfile']);
+    Route::post('/profile/update/photo', [AuthController::class, 'updatePhoto']);
+    Route::post('/absensi/upload-surat', [AbsensiController::class, 'uploadFotoSurat']);
 });
