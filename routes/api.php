@@ -56,5 +56,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sesi-aktif', [SesiAbsensiController::class, 'aktif']);
     Route::post('/profile/update', [AuthController::class, 'updateProfile']);
     Route::post('/profile/update/photo', [AuthController::class, 'updatePhoto']);
+    Route::post('/profile/update/photo-url', [AuthController::class, 'updatePhotoUrl']);
     Route::post('/absensi/upload-surat', [AbsensiController::class, 'uploadFotoSurat']);
 });

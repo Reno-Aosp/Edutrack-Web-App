@@ -154,6 +154,27 @@ class AuthController extends Controller
     }
 
     // =========================================
+    // UPDATE PHOTO URL (dari Supabase Storage)
+    // Menerima URL publik Supabase, simpan ke DB
+    // =========================================
+    public function updatePhotoUrl(Request $request)
+    {
+        $request->validate([
+            'profile_photo' => 'required|url',
+        ]);
+
+        $user = $request->user();
+        $user->update(['profile_photo' => $request->profile_photo]);
+
+        return response()->json([
+            'success'       => true,
+            'message'       => 'Foto profil berhasil diperbarui',
+            'profile_photo' => $request->profile_photo,
+            'user'          => $user->load('mahasiswa'),
+        ]);
+    }
+
+    // =========================================
     // CHANGE PASSWORD
     // =========================================
     public function changePassword(Request $request)
