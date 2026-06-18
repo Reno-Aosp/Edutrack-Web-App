@@ -22,6 +22,7 @@ class _NilaiScreenState extends State<NilaiScreen> {
 
   Future<void> _loadNilai() async {
     final data = await ApiService.getNilai();
+    if (!mounted) return;
     setState(() {
       _nilaiList = data;
       _isLoading = false;
@@ -42,37 +43,24 @@ class _NilaiScreenState extends State<NilaiScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFE91E8C),
         foregroundColor: Colors.white,
-        title: Text(
-          'Nilai Saya',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-        ),
+        title: Text('Nilai Saya', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFE91E8C)),
-            )
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFE91E8C)))
           : _nilaiList.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.grade_outlined,
-                    size: 80,
-                    color: Colors.pink.shade200,
-                  ),
+                  Icon(Icons.grade_outlined, size: 80, color: Colors.pink.shade200),
                   const SizedBox(height: 16),
-                  Text(
-                    'Belum ada data nilai',
-                    style: GoogleFonts.poppins(color: Colors.grey),
-                  ),
+                  Text('Belum ada data nilai', style: GoogleFonts.poppins(color: Colors.grey)),
                 ],
               ),
             )
           : Column(
               children: [
-                // Summary card
                 Container(
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(16),
@@ -85,15 +73,10 @@ class _NilaiScreenState extends State<NilaiScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _summaryItem(
-                        'Total MK',
-                        _nilaiList.length.toString(),
-                        Icons.book,
-                      ),
+                      _summaryItem('Total MK', _nilaiList.length.toString(), Icons.book),
                       _summaryItem(
                         'Rata-rata',
-                        (_nilaiList.fold(0.0, (sum, n) => sum + n.nilaiAkhir) /
-                                _nilaiList.length)
+                        (_nilaiList.fold(0.0, (sum, n) => sum + n.nilaiAkhir) / _nilaiList.length)
                             .toStringAsFixed(1),
                         Icons.bar_chart,
                       ),
@@ -108,8 +91,6 @@ class _NilaiScreenState extends State<NilaiScreen> {
                     ],
                   ),
                 ),
-
-                // List nilai
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -133,14 +114,12 @@ class _NilaiScreenState extends State<NilaiScreen> {
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
-                              // Grade
                               Container(
                                 width: 56,
                                 height: 56,
                                 decoration: BoxDecoration(
-                                  color: _getGradeColor(
-                                    n.nilaiAkhir,
-                                  ).withOpacity(0.1),
+                                  // FIX: withOpacity -> withValues
+                                  color: _getGradeColor(n.nilaiAkhir).withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
@@ -169,28 +148,16 @@ class _NilaiScreenState extends State<NilaiScreen> {
                                     ),
                                     Text(
                                       '${n.kodeMatKul} · Semester ${n.semester}',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.grey,
-                                        fontSize: 11,
-                                      ),
+                                      style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11),
                                     ),
                                     const SizedBox(height: 8),
                                     Row(
                                       children: [
-                                        _chip(
-                                          'Tugas',
-                                          n.nilaiTugas.toStringAsFixed(0),
-                                        ),
+                                        _chip('Tugas', n.nilaiTugas.toStringAsFixed(0)),
                                         const SizedBox(width: 6),
-                                        _chip(
-                                          'UTS',
-                                          n.nilaiUts.toStringAsFixed(0),
-                                        ),
+                                        _chip('UTS', n.nilaiUts.toStringAsFixed(0)),
                                         const SizedBox(width: 6),
-                                        _chip(
-                                          'UAS',
-                                          n.nilaiUas.toStringAsFixed(0),
-                                        ),
+                                        _chip('UAS', n.nilaiUas.toStringAsFixed(0)),
                                       ],
                                     ),
                                   ],
@@ -208,10 +175,7 @@ class _NilaiScreenState extends State<NilaiScreen> {
                                   ),
                                   Text(
                                     'Akhir',
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.grey,
-                                      fontSize: 11,
-                                    ),
+                                    style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11),
                                   ),
                                 ],
                               ),
@@ -232,18 +196,9 @@ class _NilaiScreenState extends State<NilaiScreen> {
       children: [
         Icon(icon, color: Colors.white70, size: 20),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.poppins(color: Colors.white70, fontSize: 11),
-        ),
+        Text(value,
+            style: GoogleFonts.poppins(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(label, style: GoogleFonts.poppins(color: Colors.white70, fontSize: 11)),
       ],
     );
   }
@@ -252,15 +207,13 @@ class _NilaiScreenState extends State<NilaiScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0A8D0).withOpacity(0.3),
+        // FIX: withOpacity -> withValues
+        color: const Color(0xFFF0A8D0).withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         '$label: $value',
-        style: GoogleFonts.poppins(
-          fontSize: 10,
-          color: const Color(0xFF5C1033),
-        ),
+        style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF5C1033)),
       ),
     );
   }

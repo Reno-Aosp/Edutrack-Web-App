@@ -14,15 +14,7 @@ class _RapotScreenState extends State<RapotScreen> {
   RapotResponse? _rapot;
   bool _isLoading = true;
   String? _selectedSemester;
-
-  final List<String> _semesterList = [
-    'Ganjil 2023/2024',
-    'Genap 2023/2024',
-    'Ganjil 2024/2025',
-    'Genap 2024/2025',
-    'Ganjil 2025/2026',
-    'Genap 2025/2026',
-  ];
+  List<String> _semesterList = [];
 
   @override
   void initState() {
@@ -30,11 +22,33 @@ class _RapotScreenState extends State<RapotScreen> {
     _loadRapot();
   }
 
+  // ================================
+  // FIX FILTER SEMESTER
+  // ================================
   Future<void> _loadRapot({String? semester}) async {
     setState(() => _isLoading = true);
-    final data = await ApiService.getRapot(semester: semester);
+
+    // Ambil semua data dulu untuk daftar semester
+    final allData = await ApiService.getRapot(semester: null);
+
+    // Ambil data sesuai filter
+    final filtered = semester != null
+        ? await ApiService.getRapot(semester: semester)
+        : allData;
+
+    if (!mounted) return;
+
     setState(() {
-      _rapot = data;
+      _rapot = filtered;
+
+      // Selalu update daftar semester dari semua data
+      if (allData != null) {
+        final semesters = allData.nilai.map((n) => n.semester).toSet().toList();
+
+        semesters.sort();
+        _semesterList = semesters;
+      }
+
       _isLoading = false;
     });
   }
@@ -57,7 +71,7 @@ class _RapotScreenState extends State<RapotScreen> {
   @override
   Widget build(BuildContext context) {
     final mahasiswa = _rapot?.mahasiswa;
-    final nilaiList = _rapot?.nilai ?? [];
+    final List<RapotNilaiItem> nilaiList = _rapot?.nilai ?? [];
     final ipk = _rapot?.ipk ?? 0;
     final totalSks = _rapot?.totalSks ?? 0;
 
@@ -84,7 +98,9 @@ class _RapotScreenState extends State<RapotScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Filter Semester
+                  // ================================
+                  // FILTER SEMESTER
+                  // ================================
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -95,7 +111,7 @@ class _RapotScreenState extends State<RapotScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: Colors.grey.withValues(alpha: 0.1),
                           blurRadius: 8,
                         ),
                       ],
@@ -109,7 +125,7 @@ class _RapotScreenState extends State<RapotScreen> {
                         ),
                         value: _selectedSemester,
                         items: [
-                          DropdownMenuItem(
+                          DropdownMenuItem<String>(
                             value: null,
                             child: Text(
                               'Semua Semester',
@@ -117,22 +133,28 @@ class _RapotScreenState extends State<RapotScreen> {
                             ),
                           ),
                           ..._semesterList.map(
-                            (s) => DropdownMenuItem(
+                            (s) => DropdownMenuItem<String>(
                               value: s,
                               child: Text(s, style: GoogleFonts.poppins()),
                             ),
                           ),
                         ],
                         onChanged: (val) {
-                          setState(() => _selectedSemester = val);
+                          setState(() {
+                            _selectedSemester = val;
+                          });
+
                           _loadRapot(semester: val);
                         },
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 16),
 
-                  // Info Mahasiswa
+                  // ================================
+                  // INFO MAHASISWA
+                  // ================================
                   if (mahasiswa != null)
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -168,11 +190,17 @@ class _RapotScreenState extends State<RapotScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
+
                           Row(
                             children: [
                               _infoChip('IPK', ipk.toStringAsFixed(2)),
                               const SizedBox(width: 8),
                               _infoChip('Total SKS', totalSks.toString()),
+                              const SizedBox(width: 8),
+                              _infoChip(
+                                'Mata Kuliah',
+                                nilaiList.length.toString(),
+                              ),
                             ],
                           ),
                         ],
@@ -180,6 +208,7 @@ class _RapotScreenState extends State<RapotScreen> {
                     ),
 
                   const SizedBox(height: 16),
+
                   Text(
                     'Daftar Nilai',
                     style: GoogleFonts.poppins(
@@ -188,8 +217,12 @@ class _RapotScreenState extends State<RapotScreen> {
                       fontSize: 15,
                     ),
                   ),
+
                   const SizedBox(height: 8),
 
+                  // ================================
+                  // LIST NILAI
+                  // ================================
                   nilaiList.isEmpty
                       ? Center(
                           child: Padding(
@@ -218,7 +251,7 @@ class _RapotScreenState extends State<RapotScreen> {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: Colors.grey.withValues(alpha: 0.1),
                                 blurRadius: 8,
                               ),
                             ],
@@ -227,6 +260,7 @@ class _RapotScreenState extends State<RapotScreen> {
                             children: nilaiList.asMap().entries.map((entry) {
                               final i = entry.key;
                               final n = entry.value;
+
                               return Container(
                                 decoration: BoxDecoration(
                                   border: i < nilaiList.length - 1
@@ -253,14 +287,17 @@ class _RapotScreenState extends State<RapotScreen> {
                                               fontSize: 13,
                                             ),
                                           ),
+
                                           Text(
-                                            '${n.kodeMatKul} · Semester ${n.semester}',
+                                            '${n.kodeMatKul} · ${n.semester}',
                                             style: GoogleFonts.poppins(
                                               color: Colors.grey,
                                               fontSize: 11,
                                             ),
                                           ),
+
                                           const SizedBox(height: 4),
+
                                           Row(
                                             children: [
                                               _nilaiChip(
@@ -279,9 +316,27 @@ class _RapotScreenState extends State<RapotScreen> {
                                               ),
                                             ],
                                           ),
+
+                                          const SizedBox(height: 4),
+
+                                          if (n.totalPertemuan > 0)
+                                            Text(
+                                              'Kehadiran: ${n.hadir}/${n.totalPertemuan} '
+                                              '(${(n.hadir / n.totalPertemuan * 100).toStringAsFixed(0)}%)',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 10,
+                                                color:
+                                                    n.hadir /
+                                                            n.totalPertemuan >=
+                                                        0.75
+                                                    ? Colors.green
+                                                    : Colors.red,
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ),
+
                                     Column(
                                       children: [
                                         Container(
@@ -290,7 +345,7 @@ class _RapotScreenState extends State<RapotScreen> {
                                           decoration: BoxDecoration(
                                             color: _gradeColor(
                                               n.gradeLetter,
-                                            ).withOpacity(0.15),
+                                            ).withValues(alpha: 0.15),
                                             shape: BoxShape.circle,
                                           ),
                                           child: Center(
@@ -306,7 +361,9 @@ class _RapotScreenState extends State<RapotScreen> {
                                             ),
                                           ),
                                         ),
+
                                         const SizedBox(height: 4),
+
                                         Text(
                                           n.nilaiAkhir.toStringAsFixed(1),
                                           style: GoogleFonts.poppins(
@@ -332,7 +389,7 @@ class _RapotScreenState extends State<RapotScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(

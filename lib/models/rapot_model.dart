@@ -1,5 +1,3 @@
-import 'nilai_model.dart';
-
 class MahasiswaModel {
   final String nama;
   final String nim;
@@ -16,9 +14,53 @@ class MahasiswaModel {
   }
 }
 
+class RapotNilaiItem {
+  final String mataKuliah;
+  final String kodeMatKul;
+  final int sks;
+  final double nilaiTugas;
+  final double nilaiUts;
+  final double nilaiUas;
+  final double nilaiAkhir;
+  final String gradeLetter;
+  final String semester;
+  final int hadir;
+  final int totalPertemuan;
+
+  RapotNilaiItem({
+    required this.mataKuliah,
+    required this.kodeMatKul,
+    required this.sks,
+    required this.nilaiTugas,
+    required this.nilaiUts,
+    required this.nilaiUas,
+    required this.nilaiAkhir,
+    required this.gradeLetter,
+    required this.semester,
+    required this.hadir,
+    required this.totalPertemuan,
+  });
+
+  factory RapotNilaiItem.fromJson(Map<String, dynamic> json) {
+    return RapotNilaiItem(
+      mataKuliah: json['matkul'] ?? '-',
+      kodeMatKul: json['kode'] ?? '-',
+      sks: json['sks'] ?? 0,
+      nilaiTugas: (json['nilai_tugas'] ?? 0).toDouble(),
+      nilaiUts: (json['nilai_uts'] ?? 0).toDouble(),
+      nilaiUas: (json['nilai_uas'] ?? 0).toDouble(),
+      nilaiAkhir: (json['nilai_akhir'] ?? 0).toDouble(),
+      gradeLetter: json['grade'] ?? '-',
+      semester: json['semester'] ?? '-',
+      hadir: json['hadir'] ?? 0,
+      totalPertemuan: json['total_pertemuan'] ?? 0,
+    );
+  }
+}
+
 class RapotResponse {
   final MahasiswaModel? mahasiswa;
-  final List<NilaiModel> nilai;
+  final List<RapotNilaiItem> nilai;
   final double ipk;
   final int totalSks;
 
@@ -35,7 +77,7 @@ class RapotResponse {
           ? MahasiswaModel.fromJson(json['mahasiswa'])
           : null,
       nilai: (json['nilai'] as List<dynamic>? ?? [])
-          .map((e) => NilaiModel.fromJson(e))
+          .map((e) => RapotNilaiItem.fromJson(e))
           .toList(),
       ipk: (json['ipk'] ?? 0).toDouble(),
       totalSks: json['total_sks'] ?? 0,

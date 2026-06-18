@@ -5,23 +5,59 @@ import '../services/api_service.dart';
 import 'edit_profil_screen.dart';
 import 'login_screen.dart';
 
-class ProfilScreen extends StatelessWidget {
+class ProfilScreen extends StatefulWidget {
   final UserModel? user;
   const ProfilScreen({super.key, this.user});
 
   @override
+  State<ProfilScreen> createState() => _ProfilScreenState();
+}
+
+class _ProfilScreenState extends State<ProfilScreen> {
+  UserModel? _user;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _user = widget.user;
+  }
+
+  // Re-fetch profile from server to get latest photo URL
+  Future<void> _refreshProfile() async {
+    setState(() => _isLoading = true);
+    final fresh = await ApiService.getProfile();
+    if (mounted) {
+      setState(() {
+        if (fresh != null) _user = fresh;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final mahasiswa = user?.mahasiswa;
+    final mahasiswa = _user?.mahasiswa;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF0F7),
       appBar: AppBar(
         backgroundColor: const Color(0xFFE91E8C),
         foregroundColor: Colors.white,
-        title: Text(
-          'Profil Saya',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-        ),
+        title: Text('Profil Saya', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        actions: [
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                ),
+              ),
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -42,12 +78,10 @@ class ProfilScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child:
-                        user?.profilePhoto != null &&
-                            user!.profilePhoto!.isNotEmpty
+                    child: _user?.profilePhoto != null && _user!.profilePhoto!.isNotEmpty
                         ? Container(
                             width: 60,
                             height: 60,
@@ -57,55 +91,35 @@ class ProfilScreen extends StatelessWidget {
                             ),
                             child: ClipOval(
                               child: Image.network(
-                                user!.profilePhoto!,
+                                _user!.profilePhoto!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(
-                                  Icons.person,
-                                  size: 60,
-                                  color: Colors.white,
-                                ),
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.person, size: 60, color: Colors.white),
                               ),
                             ),
                           )
-                        : const Icon(
-                            Icons.person,
-                            size: 60,
-                            color: Colors.white,
-                          ),
+                        : const Icon(Icons.person, size: 60, color: Colors.white),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    user?.name ?? '-',
+                    _user?.name ?? '-',
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Text(
-                    mahasiswa?.nim ?? '-',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
+                  Text(mahasiswa?.nim ?? '-',
+                      style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14)),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      'Mahasiswa',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 12,
-                      ),
-                    ),
+                    child: Text('Mahasiswa',
+                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 12)),
                   ),
                 ],
               ),
@@ -118,48 +132,25 @@ class ProfilScreen extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.pink.shade50,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
+                  BoxShadow(color: Colors.pink.shade50, blurRadius: 8, offset: const Offset(0, 2)),
                 ],
               ),
               child: Column(
                 children: [
-                  _infoTile(
-                    icon: Icons.person_outline,
-                    label: 'Nama Lengkap',
-                    value: user?.name ?? '-',
-                  ),
+                  _infoTile(icon: Icons.person_outline, label: 'Nama Lengkap', value: _user?.name ?? '-'),
                   _divider(),
-                  _infoTile(
-                    icon: Icons.email_outlined,
-                    label: 'Email',
-                    value: user?.email ?? '-',
-                  ),
+                  _infoTile(icon: Icons.email_outlined, label: 'Email', value: _user?.email ?? '-'),
                   _divider(),
-                  _infoTile(
-                    icon: Icons.badge_outlined,
-                    label: 'NIM',
-                    value: mahasiswa?.nim ?? '-',
-                  ),
+                  _infoTile(icon: Icons.badge_outlined, label: 'NIM', value: mahasiswa?.nim ?? '-'),
                   _divider(),
-                  _infoTile(
-                    icon: Icons.school_outlined,
-                    label: 'Program Studi',
-                    value: mahasiswa?.prodi ?? '-',
-                  ),
+                  _infoTile(icon: Icons.school_outlined, label: 'Program Studi', value: mahasiswa?.prodi ?? '-'),
                   _divider(),
-                  _infoTile(
-                    icon: Icons.calendar_today_outlined,
-                    label: 'Angkatan',
-                    value: mahasiswa?.angkatan ?? '-',
-                  ),
+                  _infoTile(icon: Icons.calendar_today_outlined, label: 'Angkatan', value: mahasiswa?.angkatan ?? '-'),
                 ],
               ),
             ),
             const SizedBox(height: 24),
+
             // Edit Button
             SizedBox(
               width: double.infinity,
@@ -168,35 +159,31 @@ class ProfilScreen extends StatelessWidget {
                 onPressed: () async {
                   final result = await Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => EditProfilScreen(user: user),
-                    ),
+                    MaterialPageRoute(builder: (_) => EditProfilScreen(user: _user)),
                   );
-                  // Refresh profile if update was successful
+                  // Re-fetch fresh profile from server after editing
                   if (result == true && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Profil berhasil diperbarui'),
-                        backgroundColor: Colors.green,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                    await _refreshProfile();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profil berhasil diperbarui ✅'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   }
                 },
                 icon: const Icon(Icons.edit),
                 label: Text(
                   'Edit Profil',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF5C1033),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
               ),
             ),
@@ -207,28 +194,22 @@ class ProfilScreen extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: () async {
                   await ApiService.logout();
-                  if (context.mounted) {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  }
+                  if (!context.mounted) return;
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
                 },
                 icon: const Icon(Icons.logout),
                 label: Text(
                   'Logout',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFE91E8C),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
               ),
             ),
@@ -238,11 +219,7 @@ class ProfilScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoTile({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
+  Widget _infoTile({required IconData icon, required String label, required String value}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -253,10 +230,7 @@ class ProfilScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11),
-                ),
+                Text(label, style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11)),
                 Text(
                   value,
                   style: GoogleFonts.poppins(
@@ -274,11 +248,6 @@ class ProfilScreen extends StatelessWidget {
   }
 
   Widget _divider() {
-    return Divider(
-      height: 1,
-      color: Colors.pink.shade50,
-      indent: 54,
-      endIndent: 16,
-    );
+    return Divider(height: 1, color: Colors.pink.shade50, indent: 54, endIndent: 16);
   }
 }

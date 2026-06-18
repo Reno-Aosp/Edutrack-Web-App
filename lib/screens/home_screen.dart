@@ -8,6 +8,7 @@ import 'absensi_screen.dart';
 import 'profil_screen.dart';
 import 'rapot_screen.dart';
 import 'jadwal_screen.dart';
+import 'lifestyle_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadProfile() async {
     final user = await ApiService.getProfile();
+    if (!mounted) return;
     setState(() {
       _user = user;
       _isLoading = false;
@@ -49,12 +51,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ElevatedButton(
             onPressed: () async {
               await ApiService.logout();
-              if (mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-              }
+              if (!ctx.mounted) return;
+              Navigator.pushReplacement(
+                ctx,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE91E8C),
@@ -77,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : CustomScrollView(
               slivers: [
-                // App Bar
                 SliverAppBar(
                   expandedHeight: 200,
                   floating: false,
@@ -104,7 +104,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
@@ -153,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -171,8 +173,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-
-                // Content
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
@@ -188,8 +188,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-
-                        // Grid Menu 3x2
                         GridView.count(
                           crossAxisCount: 2,
                           shrinkWrap: true,
@@ -274,6 +272,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             ),
+                            // ── MENU BARU: GAYA HIDUP ──
+                            _menuCard(
+                              icon: Icons.spa_rounded,
+                              label: 'Gaya Hidup',
+                              subtitle: 'Saran & asesmen kesehatan',
+                              color: const Color(0xFFD81B60),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LifestyleScreen(),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -300,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -315,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 28),
