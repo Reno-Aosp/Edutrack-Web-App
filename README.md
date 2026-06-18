@@ -157,4 +157,4 @@ python lifestyle_api.py   # Starts Flask on port 5003
 | AI Server | Flask |
 | Mobile App | Flutter (Dart) |
 | Hosting | AWS Lightsail |
-| Database | MySQL | Supabase
+| Database | MySQL Supabase
