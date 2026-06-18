@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Kelas;
 use App\Models\Mahasiswa;
+use App\Models\MataKuliah;
 use Illuminate\Http\Request;
 
 class KelasWebController extends Controller {
@@ -33,9 +34,10 @@ class KelasWebController extends Controller {
     }
 
     public function show($id) {
-        $kelas = Kelas::with('mahasiswa')->findOrFail($id);
+        $kelas = Kelas::with(['mahasiswa', 'mataKuliah'])->findOrFail($id);
         $semuaMahasiswa = Mahasiswa::all();
-        return view('kelas.show', compact('kelas', 'semuaMahasiswa'));
+        $semuaMataKuliah = MataKuliah::all();
+        return view('kelas.show', compact('kelas', 'semuaMahasiswa', 'semuaMataKuliah'));
     }
 
     public function edit($id) {
@@ -68,5 +70,12 @@ class KelasWebController extends Controller {
         $kelas->mahasiswa()->detach($mahasiswa_id);
         return redirect()->route('kelas.show', $kelas_id)
             ->with('success', 'Mahasiswa berhasil dihapus dari kelas!');
+    }
+
+    public function assignMatkul(Request $request, $id) {
+        $kelas = Kelas::findOrFail($id);
+        $kelas->mataKuliah()->sync($request->matkul_ids ?? []);
+        return redirect()->route('kelas.show', $id)
+            ->with('success', 'Mata kuliah berhasil diupdate!');
     }
 }

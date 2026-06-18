@@ -7,11 +7,19 @@ use Illuminate\Http\Request;
 
 class NilaiController extends Controller {
 
-    public function index($mahasiswa_id) {
-        $nilai = Nilai::with('mataKuliah')
-                    ->where('mahasiswa_id', $mahasiswa_id)
+    public function index(Request $request) {
+        $user = $request->user();
+        $mahasiswa = $user->mahasiswa;
+
+        if (!$mahasiswa) {
+            return response()->json(['data' => []]);
+        }
+
+        $nilai = Nilai::with(['mataKuliah'])
+                    ->where('mahasiswa_id', $mahasiswa->id)
                     ->get();
-        return response()->json($nilai);
+
+        return response()->json(['data' => $nilai]);
     }
 
     public function store(Request $request) {
@@ -24,7 +32,20 @@ class NilaiController extends Controller {
             'semester'     => 'required',
         ]);
 
-        $nilai = Nilai::create($request->all());
+        $nilaiAkhir = ($request->nilai_tugas * 0.3) +
+                      ($request->nilai_uts * 0.3) +
+                      ($request->nilai_uas * 0.4);
+
+        $nilai = Nilai::create([
+            'mahasiswa_id' => $request->mahasiswa_id,
+            'matkul_id'    => $request->matkul_id,
+            'nilai_tugas'  => $request->nilai_tugas,
+            'nilai_uts'    => $request->nilai_uts,
+            'nilai_uas'    => $request->nilai_uas,
+            'nilai_akhir'  => $nilaiAkhir,
+            'semester'     => $request->semester,
+        ]);
+
         return response()->json($nilai, 201);
     }
 

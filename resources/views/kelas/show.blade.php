@@ -40,6 +40,37 @@
     </div>
 </div>
 
+<!-- Assign Mata Kuliah ke Kelas -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-4">
+        <h6 class="fw-bold mb-3" style="color:#5C1033;">Mata Kuliah di Kelas Ini</h6>
+        <form method="POST" action="{{ route('kelas.assignMatkul', $kelas->id) }}">
+            @csrf
+            <div class="row g-2 mb-3">
+                @foreach($semuaMataKuliah as $matkul)
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                            name="matkul_ids[]"
+                            value="{{ $matkul->id }}"
+                            id="matkul_{{ $matkul->id }}"
+                            {{ $kelas->mataKuliah->contains($matkul->id) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="matkul_{{ $matkul->id }}">
+                            <span class="badge me-1" style="background:#E91E8C;">{{ $matkul->kode }}</span>
+                            {{ $matkul->nama }} ({{ $matkul->sks }} SKS)
+                        </label>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            <button type="submit" class="btn text-white fw-bold"
+                style="background:#E91E8C;">
+                <i class="bi bi-save"></i> Simpan Mata Kuliah
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- Tambah Mahasiswa ke Kelas -->
 <div class="card border-0 shadow-sm rounded-4 mb-4">
     <div class="card-body p-4">

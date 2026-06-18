@@ -7,8 +7,20 @@ use Illuminate\Http\Request;
 
 class MataKuliahController extends Controller {
 
-    public function index() {
-        $mataKuliah = MataKuliah::with('dosen')->get();
+    public function index(Request $request) {
+        $query = MataKuliah::with('dosen');
+        
+        // Filter by mahasiswa_id jika ada parameter
+        if ($request->has('mahasiswa_id')) {
+            $mahasiswaId = $request->query('mahasiswa_id');
+            $query->whereHas('kelas', function($q) use ($mahasiswaId) {
+                $q->whereHas('mahasiswa', function($q2) use ($mahasiswaId) {
+                    $q2->where('mahasiswa.id', $mahasiswaId);
+                });
+            });
+        }
+        
+        $mataKuliah = $query->get();
         return response()->json($mataKuliah);
     }
 

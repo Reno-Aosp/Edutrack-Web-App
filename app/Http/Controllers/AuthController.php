@@ -15,7 +15,9 @@ class AuthController extends Controller {
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)
+                    ->with('mahasiswa')
+                    ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -29,6 +31,12 @@ class AuthController extends Controller {
             'token' => $token,
             'user'  => $user,
         ]);
+    }
+
+    public function profile(Request $request) {
+        $user = User::with('mahasiswa')
+                    ->find($request->user()->id);
+        return response()->json(['user' => $user]);
     }
 
     public function logout(Request $request) {

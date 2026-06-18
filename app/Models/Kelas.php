@@ -12,6 +12,14 @@ class Kelas extends Model {
         return $this->belongsToMany(Mahasiswa::class, 'kelas_mahasiswa');
     }
 
+    public function mataKuliah() {
+        return $this->belongsToMany(MataKuliah::class, 'kelas_matkul', 'kelas_id', 'matkul_id');
+    }
+
+    public function jadwal() {
+        return $this->hasMany(Jadwal::class);
+    }
+
     public function nilai() {
         return $this->hasMany(Nilai::class);
     }

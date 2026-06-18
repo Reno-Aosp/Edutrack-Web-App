@@ -15,6 +15,10 @@ class MataKuliah extends Model {
         return $this->belongsTo(Dosen::class, 'dosen_id');
     }
 
+    public function kelas() {
+        return $this->belongsToMany(Kelas::class, 'kelas_matkul', 'matkul_id', 'kelas_id');
+    }
+
     public function nilai() {
         return $this->hasMany(Nilai::class, 'matkul_id');
     }

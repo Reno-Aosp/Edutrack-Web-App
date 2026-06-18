@@ -31,7 +31,7 @@
                     <td>{{ $mk->nama }}</td>
                     <td><span class="badge" style="background:#E91E8C;">{{ $mk->kode }}</span></td>
                     <td>{{ $mk->sks }} SKS</td>
-                    <td>{{ $mk->dosen->nama ?? '-' }}</td>
+                    <td>{{ $mk->dosen->user->name ?? '-' }}</td>
                     <td>
                         <a href="{{ route('matakuliah.edit', $mk->id) }}"
                             class="btn btn-sm btn-warning">

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EduTrack - @yield('title')</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/dist/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         .sidebar { min-height: 100vh; background: #F0A8D0; }
         .sidebar a { color: #5C1033; text-decoration: none; }
@@ -50,8 +50,18 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{{ route('jadwal.index') }}" class="nav-link px-3 py-2 {{ request()->is('jadwal*') ? 'active' : '' }}">
+                        <i class="bi bi-clock"></i> Jadwal
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{{ route('nilai.index') }}" class="nav-link px-3 py-2 {{ request()->is('nilai*') ? 'active' : '' }}">
                         <i class="bi bi-journal-check"></i> Nilai
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('rapot.index') }}" class="nav-link px-3 py-2 {{ request()->is('rapot*') ? 'active' : '' }}">
+                        <i class="bi bi-file-earmark-pdf"></i> Rapor
                     </a>
                 </li>
                 <li class="nav-item">
