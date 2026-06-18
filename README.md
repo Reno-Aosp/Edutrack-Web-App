@@ -7,8 +7,8 @@ Edutrack is a comprehensive platform built with a **Laravel backend** and a **Fl
 This project is actively deployed and hosted on **AWS Lightsail**. 
 
 You can verify the live environment using the following links:
-- **Backend API Base URL**: `http://<YOUR_AWS_LIGHTSAIL_IP_OR_DOMAIN>` *(Replace with your actual IP/Domain)*
-- **Live Demo / Web Portal**: `http://<YOUR_AWS_LIGHTSAIL_IP_OR_DOMAIN>`
+- **Backend API Base URL**: `https://edutrack.serveblog.net/api`
+- **Live Demo / Web Portal**: `https://edutrack.serveblog.net/login`
 
 *(Optional: Add a screenshot or GIF here showing the mobile app fetching live data from the AWS server!)*
 ![App Demo](https://via.placeholder.com/600x400?text=App+Screenshot+or+GIF+Here)
